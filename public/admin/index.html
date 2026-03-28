@@ -593,7 +593,13 @@
 
   function addImageEntry(existing = null) {
     const idx = imageCounter++;
-    const item = { idx, type: existing?.image_type || 'url', url: existing?.image_url || '', file: null };
+    const item = {
+      idx,
+      type: existing?.image_type || 'url',
+      url: existing?.image_url || '',
+      file: null,
+      previewSrc: existing?.image_type === 'upload' ? existing?.image_url : null,
+    };
     imageItems.push(item);
     renderImageList();
   }
