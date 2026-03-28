@@ -565,7 +565,8 @@
       el.innerHTML = '<div class="empty-list">Ingen artikler endnu.<br>Klik "+ Ny" for at starte.</div>';
       return;
     }
-    el.innerHTML = articles.map(a => `
+    const sorted = [...articles].sort((a, b) => new Date(b.date) - new Date(a.date));
+    el.innerHTML = sorted.map(a => `
       <div class="article-item ${a.id === currentId ? 'active' : ''}" onclick="editArticle(${a.id})">
         <div class="article-item-title">${escHtml(a.title)}</div>
         <div class="article-item-meta">${formatDate(a.date)}</div>
