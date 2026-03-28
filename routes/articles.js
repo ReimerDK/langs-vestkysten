@@ -6,7 +6,7 @@ const fs = require('fs');
 const db = require('../database');
 const requireAuth = require('../middleware/auth');
 
-const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
+const UPLOADS_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),

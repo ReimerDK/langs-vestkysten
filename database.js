@@ -2,9 +2,13 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 
+// Brug DATA_DIR miljøvariabel hvis sat (Railway Volume), ellers projekt-mappen
+const dataDir = process.env.DATA_DIR || __dirname;
+if (!require('fs').existsSync(dataDir)) require('fs').mkdirSync(dataDir, { recursive: true });
+
 let db;
 try {
-  db = new Database(path.join(__dirname, 'blog.db'));
+  db = new Database(path.join(dataDir, 'blog.db'));
   db.pragma('journal_mode = WAL');
   db.prepare('SELECT 1').get(); // test connection
 } catch (err) {

@@ -3,8 +3,9 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
-// Opret uploads-mappe hvis den ikke findes (vigtigt på Railway/cloud)
-const uploadsDir = path.join(__dirname, 'uploads');
+// Brug DATA_DIR miljøvariabel hvis sat (Railway Volume), ellers projekt-mappen
+const dataDir = process.env.DATA_DIR || __dirname;
+const uploadsDir = path.join(dataDir, 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 const app = express();
