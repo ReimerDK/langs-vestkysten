@@ -597,13 +597,6 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
   maxZoom: 19,
 }).addTo(map);
 
-// Planlagt rute (varm grå)
-const routeLine = L.polyline(ROUTE, {
-  color: '#D4C5B2',
-  weight: 2.5,
-  opacity: 0.8,
-  lineJoin: 'round',
-}).addTo(map);
 
 // Bil-markør (RV)
 const carIcon = L.divIcon({
