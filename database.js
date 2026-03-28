@@ -10,6 +10,7 @@ let db;
 try {
   db = new Database(path.join(dataDir, 'blog.db'));
   db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000'); // Vent op til 5s hvis DB er låst (rolling deploy)
   db.prepare('SELECT 1').get(); // test connection
 } catch (err) {
   console.error('FATAL: Database initialization failed:', err);

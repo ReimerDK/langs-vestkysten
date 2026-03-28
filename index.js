@@ -64,10 +64,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Blog API kører på http://localhost:${PORT}`);
   console.log(`Admin: http://localhost:${PORT}/admin/`);
   console.log(`DATA_DIR: ${dataDir}`);
   console.log(`Uploads: ${uploadsDir}`);
   console.log(`Database: ${path.join(dataDir, 'blog.db')}`);
+});
+
+// Graceful shutdown — forhindrer npm-fejl ved Railway rolling deploy
+process.on('SIGTERM', () => {
+  console.log('SIGTERM modtaget — lukker ned...');
+  server.close(() => {
+    const db = require('./database');
+    try { db.close(); } catch {}
+    process.exit(0);
+  });
 });
