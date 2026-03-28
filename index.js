@@ -25,8 +25,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Servér uploadede billeder statisk
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Servér uploadede billeder statisk fra DATA_DIR (Railway Volume eller lokal mappe)
+app.use('/uploads', express.static(uploadsDir));
 
 // Servér admin-panel
 app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
