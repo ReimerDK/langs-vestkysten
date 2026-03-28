@@ -50,12 +50,24 @@ app.use('/api/settings', require('./routes/settings'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// Health check
+// Health check — viser storage-stier (nyttigt til fejlfinding på Railway)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  const dbPath = path.join(dataDir, 'blog.db');
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    DATA_DIR: process.env.DATA_DIR || '(ikke sat — bruger projektmappen)',
+    uploadsDir,
+    dbPath,
+    uploadsExists: fs.existsSync(uploadsDir),
+    dbExists: fs.existsSync(dbPath),
+  });
 });
 
 app.listen(PORT, () => {
   console.log(`Blog API kører på http://localhost:${PORT}`);
   console.log(`Admin: http://localhost:${PORT}/admin/`);
+  console.log(`DATA_DIR: ${dataDir}`);
+  console.log(`Uploads: ${uploadsDir}`);
+  console.log(`Database: ${path.join(dataDir, 'blog.db')}`);
 });
