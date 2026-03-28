@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../database');
 const requireAuth = require('../middleware/auth');
 
-const SITE_KEYS = ['site_tag', 'site_title', 'site_description', 'start_location', 'end_location'];
+const SITE_KEYS = ['site_tag', 'site_title', 'site_description', 'start_location', 'end_location', 'end_description', 'scroll_hint', 'section_label'];
 
 // GET /api/settings — public
 router.get('/', (req, res) => {

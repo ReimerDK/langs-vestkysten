@@ -91,6 +91,9 @@ const siteDefaults = {
   site_description: 'Fra den dansk-tyske grænse ned langs Europas vestkyst — hele vejen til Gibraltar.',
   start_location:   'Padborg',
   end_location:     'Gibraltar',
+  end_description:  'Sydspidsen af Europa. Endestationen.',
+  scroll_hint:      'Scroll for at følge rejsen ↓',
+  section_label:    'Opslag fra turen',
 };
 const insertSetting = db.prepare(
   'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'

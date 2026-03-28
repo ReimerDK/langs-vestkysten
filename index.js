@@ -25,6 +25,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Servér admin-panel
 app.use('/admin', express.static(path.join(__dirname, 'public/admin')));
 
+// Ingen browser-caching af API-svar
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Auth routes (ingen beskyttelse)
 app.use('/api/auth', require('./routes/auth'));
 

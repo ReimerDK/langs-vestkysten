@@ -399,7 +399,10 @@
 <body>
 
 <header>
-  <h1>Blog Admin</h1>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <h1>Blog Admin</h1>
+    <button onclick="openSettings()" style="background:transparent;border:1px solid #52525b;color:#a1a1aa;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">⚙ Indstillinger</button>
+  </div>
   <div style="display:flex;align-items:center;gap:16px;">
     <span id="article-count">Indlæser...</span>
     <button onclick="logout()" style="background:transparent;border:1px solid #52525b;color:#a1a1aa;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Log ud</button>
@@ -411,7 +414,6 @@
     <div class="sidebar-header">
       <span>Artikler</span>
       <div style="display:flex;gap:6px;">
-        <button class="btn-new" style="background:transparent;color:var(--muted);border:1px solid var(--border);" onclick="openSettings()">⚙</button>
         <button class="btn-new" onclick="newArticle()">+ Ny</button>
       </div>
     </div>
@@ -751,8 +753,15 @@
     currentId = null;
     renderList();
 
-    const res = await authFetch('/api/settings');
-    const s = await res.json();
+    let s = {};
+    try {
+      const res = await authFetch('/api/settings');
+      if (!res.ok) throw new Error(`Server fejl: ${res.status}`);
+      s = await res.json();
+    } catch (err) {
+      showToast('Kunne ikke hente indstillinger: ' + err.message, 'error');
+      return;
+    }
 
     document.getElementById('editor-area').innerHTML = `
       <div class="editor-card">
@@ -793,6 +802,22 @@
               <input type="text" id="s-end" value="${escAttr(s.end_location || '')}" placeholder="Gibraltar">
             </div>
           </div>
+
+          <div class="form-row">
+            <label>Tekst ved slutsted</label>
+            <input type="text" id="s-end-desc" value="${escAttr(s.end_description || '')}" placeholder="Sydspidsen af Europa. Endestationen.">
+          </div>
+
+          <div class="form-row-half" style="margin-bottom:18px;">
+            <div>
+              <label>Scroll-hint</label>
+              <input type="text" id="s-scroll-hint" value="${escAttr(s.scroll_hint || '')}" placeholder="Scroll for at følge rejsen ↓">
+            </div>
+            <div>
+              <label>Sektionslabel</label>
+              <input type="text" id="s-section-label" value="${escAttr(s.section_label || '')}" placeholder="Opslag fra turen">
+            </div>
+          </div>
         </form>
       </div>
     `;
@@ -805,6 +830,9 @@
       site_description: document.getElementById('s-desc').value.trim(),
       start_location:   document.getElementById('s-start').value.trim(),
       end_location:     document.getElementById('s-end').value.trim(),
+      end_description:  document.getElementById('s-end-desc').value.trim(),
+      scroll_hint:      document.getElementById('s-scroll-hint').value.trim(),
+      section_label:    document.getElementById('s-section-label').value.trim(),
     };
 
     const res = await authFetch('/api/settings', {
