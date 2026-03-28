@@ -68,8 +68,11 @@ function saveImages(articleId, meta, files) {
   let order = 0;
   for (const item of meta) {
     if (item.type === 'url' && item.url) {
-      if (!isValidHttpUrl(item.url)) continue; // Afvis javascript: og data: URLs
-      insert.run(articleId, item.url, 'url', order++);
+      // Tillad /uploads/... (eksisterende uploads) og http(s):// (eksterne links)
+      const isLocalUpload = item.url.startsWith('/uploads/');
+      if (!isLocalUpload && !isValidHttpUrl(item.url)) continue; // Afvis javascript: og data: URLs
+      const imgType = isLocalUpload ? 'upload' : 'url';
+      insert.run(articleId, item.url, imgType, order++);
     } else if (item.type === 'upload' && fileMap[item.field]) {
       const url = `/uploads/${fileMap[item.field].filename}`;
       insert.run(articleId, url, 'upload', order++);
