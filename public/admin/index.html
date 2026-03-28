@@ -784,7 +784,7 @@
     const title = document.getElementById('f-title').value.trim();
     const date = document.getElementById('f-date').value;
     const content = quill ? quill.root.innerHTML.trim() : '';
-    const isEmpty = !quill || quill.getText().trim().length === 0;
+    const isEmpty = !content || content === '<p><br></p>' || content === '<p></p>';
 
     if (!title || !date || isEmpty) {
       showToast('Udfyld venligst alle påkrævede felter.', 'error');
