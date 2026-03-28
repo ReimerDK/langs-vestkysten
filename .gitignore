@@ -2,6 +2,7 @@ node_modules/
 blog.db
 blog.db-shm
 blog.db-wal
-uploads/
+uploads/*
+!uploads/.gitkeep
 *.log
 .env

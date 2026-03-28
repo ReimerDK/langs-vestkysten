@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+
+// Opret uploads-mappe hvis den ikke findes (vigtigt på Railway/cloud)
+const uploadsDir = path.join(__dirname, 'uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
