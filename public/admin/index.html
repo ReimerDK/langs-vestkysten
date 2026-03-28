@@ -386,11 +386,10 @@
     }
 
     #map {
-      height: 180px;
+      height: 220px;
       border-radius: 8px;
       margin-top: 10px;
       border: 1px solid var(--border);
-      display: none;
     }
   </style>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -579,9 +578,13 @@
       for (const img of article.images) addImageEntry(img);
     }
 
-    if (article?.latitude && article?.longitude) {
-      setTimeout(() => initMap(article.latitude, article.longitude), 50);
-    }
+    // Initialiser altid kortet (med artikel-koordinater eller standard Europa-visning)
+    setTimeout(() => {
+      const lat = article?.latitude || 54.0;
+      const lng = article?.longitude || 10.0;
+      const zoom = (article?.latitude && article?.longitude) ? 13 : 5;
+      initMap(lat, lng, zoom);
+    }, 50);
   }
 
   // --- Multi-billed system ---
@@ -866,29 +869,57 @@
   let mapMarker = null;
   let quill = null;
 
-  function initMap(lat, lng) {
+  function setCoords(lat, lng) {
+    document.getElementById('f-lat').value = lat.toFixed(6);
+    document.getElementById('f-lng').value = lng.toFixed(6);
+    if (map && mapMarker) {
+      mapMarker.setLatLng([lat, lng]);
+      map.setView([lat, lng], 13);
+    }
+  }
+
+  function initMap(lat, lng, zoom = 13) {
     const el = document.getElementById('map');
     el.style.display = 'block';
 
+    const hasCoords = document.getElementById('f-lat').value && document.getElementById('f-lng').value;
+
     if (map) {
-      map.setView([lat, lng], 13);
-      mapMarker.setLatLng([lat, lng]);
+      map.setView([lat, lng], zoom);
+      if (hasCoords && mapMarker) mapMarker.setLatLng([lat, lng]);
       return;
     }
 
-    map = L.map('map').setView([lat, lng], 13);
+    map = L.map('map').setView([lat, lng], zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    mapMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
-
-    // Opdater koordinatfelterne når markøren flyttes
-    mapMarker.on('dragend', () => {
-      const pos = mapMarker.getLatLng();
-      document.getElementById('f-lat').value = pos.lat.toFixed(6);
-      document.getElementById('f-lng').value = pos.lng.toFixed(6);
+    // Klik på kortet placerer/flytter markøren
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      if (!mapMarker) {
+        mapMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        mapMarker.on('dragend', () => {
+          const pos = mapMarker.getLatLng();
+          document.getElementById('f-lat').value = pos.lat.toFixed(6);
+          document.getElementById('f-lng').value = pos.lng.toFixed(6);
+        });
+      } else {
+        mapMarker.setLatLng([lat, lng]);
+      }
+      document.getElementById('f-lat').value = lat.toFixed(6);
+      document.getElementById('f-lng').value = lng.toFixed(6);
     });
+
+    if (hasCoords) {
+      mapMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+      mapMarker.on('dragend', () => {
+        const pos = mapMarker.getLatLng();
+        document.getElementById('f-lat').value = pos.lat.toFixed(6);
+        document.getElementById('f-lng').value = pos.lng.toFixed(6);
+      });
+    }
   }
 
   function updateMap() {
@@ -907,20 +938,22 @@
     btn.disabled = true;
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        document.getElementById('f-lat').value = lat.toFixed(6);
-        document.getElementById('f-lng').value = lng.toFixed(6);
-        initMap(lat, lng);
+        setCoords(pos.coords.latitude, pos.coords.longitude);
         btn.textContent = '📍 Hent GPS';
         btn.disabled = false;
         showToast('GPS-koordinater hentet.', 'success');
       },
-      () => {
-        showToast('Kunne ikke hente GPS. Tjek browserens tilladelser.', 'error');
+      err => {
+        const msgs = {
+          1: 'Tilladelse nægtet — tillad lokation i browserindstillingerne.',
+          2: 'Position ikke tilgængelig — prøv igen.',
+          3: 'Timeout — GPS tog for lang tid.',
+        };
+        showToast(msgs[err.code] || 'GPS fejlede. Vælg position på kortet i stedet.', 'error');
         btn.textContent = '📍 Hent GPS';
         btn.disabled = false;
-      }
+      },
+      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
     );
   }
 
