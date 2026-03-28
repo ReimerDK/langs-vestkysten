@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Admin</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/quill@2.0.3/dist/quill.snow.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f4;
+      --surface: #ffffff;
+      --border: #e4e4e7;
+      --accent: #18181b;
+      --accent-hover: #3f3f46;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --text: #18181b;
+      --muted: #71717a;
+      --input-bg: #fafafa;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--accent);
+      color: white;
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; }
+    header span { font-size: 12px; color: #a1a1aa; }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-header span { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+    .btn-new {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-new:hover { background: var(--accent-hover); }
+
+    .article-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .article-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.1s;
+      margin-bottom: 2px;
+    }
+    .article-item:hover { background: var(--bg); }
+    .article-item.active { background: #f0f0f0; }
+
+    .article-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.3;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .article-item-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .empty-list {
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* Main editor */
+    .editor-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+    }
+
+    .editor-card {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .editor-card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .editor-card-header h2 { font-size: 15px; font-weight: 600; }
+
+    .editor-actions { display: flex; gap: 8px; }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #ebebeb; }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid #fca5a5; }
+    .btn-danger:hover { background: #fef2f2; }
+
+    form { padding: 24px; }
+
+    .form-row { margin-bottom: 18px; }
+    .form-row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="url"],
+    textarea {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      background: white;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 240px;
+      line-height: 1.6;
+    }
+
+    /* Image toggle */
+    .image-toggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .toggle-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .image-preview {
+      margin-top: 10px;
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 200px;
+      display: none;
+    }
+
+    .image-preview img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--accent);
+      background: #fafafa;
+      color: var(--text);
+    }
+
+    .upload-area input { display: none; }
+    .upload-area .upload-icon { font-size: 24px; margin-bottom: 6px; }
+
+    .image-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .image-entry {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .image-entry-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--input-bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .image-entry-header .image-toggle { margin: 0; }
+
+    .image-entry-body { padding: 10px; }
+
+    .image-thumb {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      display: block;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-remove {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .btn-remove:hover { color: var(--danger); background: #fef2f2; }
+
+    .btn-add-image {
+      width: 100%;
+      padding: 9px;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn-add-image:hover { border-color: var(--accent); color: var(--text); background: var(--input-bg); }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.2s;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .welcome-icon { font-size: 48px; margin-bottom: 12px; }
+    .welcome h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+    .welcome p { font-size: 13px; }
+
+    .ql-toolbar.ql-snow {
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: var(--input-bg);
+      padding: 6px 8px;
+    }
+
+    .ql-container.ql-snow {
+      border: 1px solid var(--border);
+      border-radius: 0 0 8px 8px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .ql-editor {
+      min-height: 240px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+
+    .ql-editor.ql-blank::before {
+      color: #a1a1aa;
+      font-style: normal;
+    }
+
+    #map {
+      height: 180px;
+      border-radius: 8px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      display: none;
+    }
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/quill@2.0.3/dist/quill.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Blog Admin</h1>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span id="article-count">Indlæser...</span>
+    <button onclick="logout()" style="background:transparent;border:1px solid #52525b;color:#a1a1aa;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Log ud</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span>Artikler</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-new" style="background:transparent;color:var(--muted);border:1px solid var(--border);" onclick="openSettings()">⚙</button>
+        <button class="btn-new" onclick="newArticle()">+ Ny</button>
+      </div>
+    </div>
+    <div class="article-list" id="article-list">
+      <div class="empty-list">Indlæser...</div>
+    </div>
+  </aside>
+
+  <main class="editor-area" id="editor-area">
+    <div class="welcome">
+      <div class="welcome-icon">📝</div>
+      <h3>Vælg en artikel</h3>
+      <p>Vælg en artikel fra listen, eller opret en ny.</p>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = '/api/articles';
+  let articles = [];
+  let currentId = null;
+
+  // Auth
+  const token = localStorage.getItem('blog_token');
+  if (!token) window.location.href = '/admin/login.html';
+
+  function authFetch(url, options = {}) {
+    options.headers = { ...options.headers, 'x-auth-token': token };
+    return fetch(url, options).then(res => {
+      if (res.status === 401) {
+        localStorage.removeItem('blog_token');
+        window.location.href = '/admin/login.html';
+      }
+      return res;
+    });
+  }
+
+  async function logout() {
+    await authFetch('/api/auth/logout', { method: 'POST' });
+    localStorage.removeItem('blog_token');
+    window.location.href = '/admin/login.html';
+  }
+
+  async function loadArticles() {
+    const res = await authFetch(API);
+    articles = await res.json();
+    renderList();
+    document.getElementById('article-count').textContent = `${articles.length} artikel${articles.length !== 1 ? 'er' : ''}`;
+  }
+
+  function renderList() {
+    const el = document.getElementById('article-list');
+    if (articles.length === 0) {
+      el.innerHTML = '<div class="empty-list">Ingen artikler endnu.<br>Klik "+ Ny" for at starte.</div>';
+      return;
+    }
+    el.innerHTML = articles.map(a => `
+      <div class="article-item ${a.id === currentId ? 'active' : ''}" onclick="editArticle(${a.id})">
+        <div class="article-item-title">${escHtml(a.title)}</div>
+        <div class="article-item-meta">${formatDate(a.date)}</div>
+      </div>
+    `).join('');
+  }
+
+  function newArticle() {
+    currentId = null;
+    renderEditor(null);
+    document.querySelectorAll('.article-item').forEach(el => el.classList.remove('active'));
+  }
+
+  async function editArticle(id) {
+    const res = await authFetch(`${API}/${id}`);
+    const article = await res.json();
+    currentId = id;
+    renderEditor(article);
+    renderList();
+  }
+
+  function renderEditor(article) {
+    const isNew = !article;
+    const today = new Date().toISOString().split('T')[0];
+
+    document.getElementById('editor-area').innerHTML = `
+      <div class="editor-card">
+        <div class="editor-card-header">
+          <h2>${isNew ? 'Ny artikel' : 'Rediger artikel'}</h2>
+          <div class="editor-actions">
+            ${!isNew ? `<button class="btn btn-danger" onclick="deleteArticle(${article.id})">Slet</button>` : ''}
+            <button class="btn btn-secondary" onclick="resetEditor()">Annuller</button>
+            <button class="btn btn-primary" onclick="saveArticle()">Gem</button>
+          </div>
+        </div>
+        <form id="article-form" onsubmit="return false">
+          <div class="form-row-half">
+            <div>
+              <label>Overskrift *</label>
+              <input type="text" id="f-title" value="${escAttr(article?.title || '')}" placeholder="Artiklens titel" required>
+            </div>
+            <div>
+              <label>Dato *</label>
+              <input type="date" id="f-date" value="${article?.date || today}" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Underoverskrift</label>
+            <input type="text" id="f-subtitle" value="${escAttr(article?.subtitle || '')}" placeholder="Valgfri underoverskrift">
+          </div>
+
+          <div class="form-row">
+            <label>Tekst *</label>
+            <div id="quill-editor"></div>
+          </div>
+
+          <div class="form-row">
+            <label>Billeder</label>
+            <div class="image-list" id="image-list"></div>
+            <button type="button" class="btn-add-image" onclick="addImageEntry()" style="margin-top:8px;">+ Tilføj billede</button>
+          </div>
+
+          <div class="form-row">
+            <label>Lokation</label>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <input type="text" id="f-location-name" value="${escAttr(article?.location_name || '')}" placeholder="Stednavn (valgfrit)" style="flex:1">
+              <button type="button" onclick="getGps()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0 14px;font-size:12px;white-space:nowrap;cursor:pointer;" id="gps-btn">📍 Hent GPS</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="f-lat" value="${article?.latitude || ''}" placeholder="Breddegrad" style="flex:1;font-size:13px;color:#71717a;" oninput="updateMap()">
+              <input type="text" id="f-lng" value="${article?.longitude || ''}" placeholder="Længdegrad" style="flex:1;font-size:13px;color:#71717a;" oninput="updateMap()">
+            </div>
+            <div id="map"></div>
+          </div>
+        </form>
+      </div>
+    `;
+
+    imageItems = [];
+    map = null;
+    mapMarker = null;
+
+    // Init Quill
+    quill = new Quill('#quill-editor', {
+      theme: 'snow',
+      placeholder: 'Skriv artikelteksten her...',
+      modules: {
+        toolbar: [
+          [{ header: [2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'link'],
+          [{ align: [] }],
+          ['clean']
+        ]
+      }
+    });
+
+    if (article?.content) quill.root.innerHTML = article.content;
+
+    // Indlæs eksisterende billeder
+    if (article?.images?.length) {
+      for (const img of article.images) addImageEntry(img);
+    }
+
+    if (article?.latitude && article?.longitude) {
+      setTimeout(() => initMap(article.latitude, article.longitude), 50);
+    }
+  }
+
+  // --- Multi-billed system ---
+  let imageItems = [];
+  let imageCounter = 0;
+
+  function addImageEntry(existing = null) {
+    const idx = imageCounter++;
+    const item = { idx, type: existing?.image_type || 'url', url: existing?.image_url || '', file: null };
+    imageItems.push(item);
+    renderImageList();
+  }
+
+  function removeImageEntry(idx) {
+    imageItems = imageItems.filter(i => i.idx !== idx);
+    renderImageList();
+  }
+
+  function setEntryMode(idx, mode) {
+    const item = imageItems.find(i => i.idx === idx);
+    if (item) { item.type = mode; item.file = null; }
+    renderImageList();
+  }
+
+  function renderImageList() {
+    const el = document.getElementById('image-list');
+    if (!el) return;
+    el.innerHTML = imageItems.map(item => `
+      <div class="image-entry" id="ie-${item.idx}">
+        <div class="image-entry-header">
+          <div class="image-toggle">
+            <button type="button" class="toggle-btn ${item.type === 'url' ? 'active' : ''}"
+              onclick="setEntryMode(${item.idx},'url')">Link</button>
+            <button type="button" class="toggle-btn ${item.type === 'upload' ? 'active' : ''}"
+              onclick="setEntryMode(${item.idx},'upload')">Upload</button>
+          </div>
+          <button type="button" class="btn-remove" onclick="removeImageEntry(${item.idx})" title="Fjern">✕</button>
+        </div>
+        <div class="image-entry-body">
+          ${item.type === 'url' ? `
+            <input type="url" placeholder="https://..." value="${escAttr(item.url)}"
+              oninput="updateEntryUrl(${item.idx}, this.value)"
+              style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;">
+          ` : `
+            <div class="upload-area" id="ua-${item.idx}"
+              onclick="document.getElementById('uf-${item.idx}').click()"
+              ondragover="event.preventDefault();this.classList.add('dragover')"
+              ondrop="handleEntryDrop(event,${item.idx})"
+              ondragleave="this.classList.remove('dragover')">
+              <input type="file" id="uf-${item.idx}" accept="image/*" onchange="handleEntryFile(${item.idx},this)">
+              <div class="upload-icon">🖼</div>
+              <div id="ul-${item.idx}">${item.file ? item.file.name : 'Klik eller træk et billede hertil'}</div>
+            </div>
+          `}
+        </div>
+        ${(item.url && item.type === 'url') || (item.type === 'upload' && item.previewSrc) ? `
+          <img class="image-thumb" src="${escAttr(item.previewSrc || item.url)}"
+            onerror="this.style.display='none'" alt="">
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  function updateEntryUrl(idx, val) {
+    const item = imageItems.find(i => i.idx === idx);
+    if (item) { item.url = val; item.previewSrc = val; }
+    renderImageList();
+  }
+
+  function handleEntryFile(idx, input) {
+    if (!input.files[0]) return;
+    const item = imageItems.find(i => i.idx === idx);
+    if (!item) return;
+    item.file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = e => { item.previewSrc = e.target.result; renderImageList(); };
+    reader.readAsDataURL(item.file);
+  }
+
+  function handleEntryDrop(e, idx) {
+    e.preventDefault();
+    document.getElementById(`ua-${idx}`)?.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file?.type.startsWith('image/')) {
+      const input = document.getElementById(`uf-${idx}`);
+      // Create a DataTransfer to assign files
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handleEntryFile(idx, input);
+    }
+  }
+
+  async function saveArticle() {
+    const title = document.getElementById('f-title').value.trim();
+    const date = document.getElementById('f-date').value;
+    const content = quill ? quill.root.innerHTML.trim() : '';
+    const isEmpty = !quill || quill.getText().trim().length === 0;
+
+    if (!title || !date || isEmpty) {
+      showToast('Udfyld venligst alle påkrævede felter.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('subtitle', document.getElementById('f-subtitle').value.trim());
+    formData.append('date', date);
+    formData.append('content', content);
+    formData.append('location_name', document.getElementById('f-location-name').value.trim());
+    formData.append('latitude', document.getElementById('f-lat').value.trim());
+    formData.append('longitude', document.getElementById('f-lng').value.trim());
+
+    // Byg images_meta og vedhæft filer
+    const meta = [];
+    for (const item of imageItems) {
+      if (item.type === 'url' && item.url) {
+        meta.push({ type: 'url', url: item.url });
+      } else if (item.type === 'upload' && item.file) {
+        const field = `image_${item.idx}`;
+        meta.push({ type: 'upload', field });
+        formData.append(field, item.file);
+      }
+    }
+    formData.append('images_meta', JSON.stringify(meta));
+
+    const url = currentId ? `${API}/${currentId}` : API;
+    const method = currentId ? 'PUT' : 'POST';
+
+    const res = await authFetch(url, { method, body: formData });
+
+    if (res.ok) {
+      const saved = await res.json();
+      currentId = saved.id;
+      showToast(currentId ? 'Artikel gemt!' : 'Artikel oprettet!', 'success');
+      await loadArticles();
+      renderList();
+    } else {
+      const err = await res.json();
+      showToast(err.error || 'Noget gik galt.', 'error');
+    }
+  }
+
+  async function deleteArticle(id) {
+    if (!confirm('Er du sikker på, at du vil slette denne artikel?')) return;
+    const res = await authFetch(`${API}/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      currentId = null;
+      showToast('Artikel slettet.', 'success');
+      await loadArticles();
+      resetEditor();
+    }
+  }
+
+  function resetEditor() {
+    currentId = null;
+    renderList();
+    document.getElementById('editor-area').innerHTML = `
+      <div class="welcome">
+        <div class="welcome-icon">📝</div>
+        <h3>Vælg en artikel</h3>
+        <p>Vælg en artikel fra listen, eller opret en ny.</p>
+      </div>
+    `;
+  }
+
+  // ─── Indstillinger ───────────────────────────────────────────────────
+  async function openSettings() {
+    currentId = null;
+    renderList();
+
+    const res = await authFetch('/api/settings');
+    const s = await res.json();
+
+    document.getElementById('editor-area').innerHTML = `
+      <div class="editor-card">
+        <div class="editor-card-header">
+          <h2>Indstillinger</h2>
+          <div class="editor-actions">
+            <button class="btn btn-secondary" onclick="resetEditor()">Annuller</button>
+            <button class="btn btn-primary" onclick="saveSettings()">Gem</button>
+          </div>
+        </div>
+        <form id="settings-form" onsubmit="return false" style="padding:24px;">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">
+            Disse tekster vises på den offentlige blogside.
+          </p>
+
+          <div class="form-row">
+            <label>Mærkat (lille tekst øverst)</label>
+            <input type="text" id="s-tag" value="${escAttr(s.site_tag || '')}" placeholder="Rejseblog">
+          </div>
+
+          <div class="form-row">
+            <label>Titel (stor overskrift)</label>
+            <input type="text" id="s-title" value="${escAttr(s.site_title || '')}" placeholder="Langs Vestkysten">
+          </div>
+
+          <div class="form-row">
+            <label>Beskrivelse</label>
+            <input type="text" id="s-desc" value="${escAttr(s.site_description || '')}" placeholder="Fra ... til ...">
+          </div>
+
+          <div class="form-row-half" style="margin-bottom:18px;">
+            <div>
+              <label>Startsted</label>
+              <input type="text" id="s-start" value="${escAttr(s.start_location || '')}" placeholder="Padborg">
+            </div>
+            <div>
+              <label>Slutsted</label>
+              <input type="text" id="s-end" value="${escAttr(s.end_location || '')}" placeholder="Gibraltar">
+            </div>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  async function saveSettings() {
+    const body = {
+      site_tag:         document.getElementById('s-tag').value.trim(),
+      site_title:       document.getElementById('s-title').value.trim(),
+      site_description: document.getElementById('s-desc').value.trim(),
+      start_location:   document.getElementById('s-start').value.trim(),
+      end_location:     document.getElementById('s-end').value.trim(),
+    };
+
+    const res = await authFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      showToast('Indstillinger gemt!', 'success');
+    } else {
+      const err = await res.json();
+      showToast(err.error || 'Noget gik galt.', 'error');
+    }
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    const d = new Date(str + 'T00:00:00');
+    return d.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  let map = null;
+  let mapMarker = null;
+  let quill = null;
+
+  function initMap(lat, lng) {
+    const el = document.getElementById('map');
+    el.style.display = 'block';
+
+    if (map) {
+      map.setView([lat, lng], 13);
+      mapMarker.setLatLng([lat, lng]);
+      return;
+    }
+
+    map = L.map('map').setView([lat, lng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    mapMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+
+    // Opdater koordinatfelterne når markøren flyttes
+    mapMarker.on('dragend', () => {
+      const pos = mapMarker.getLatLng();
+      document.getElementById('f-lat').value = pos.lat.toFixed(6);
+      document.getElementById('f-lng').value = pos.lng.toFixed(6);
+    });
+  }
+
+  function updateMap() {
+    const lat = parseFloat(document.getElementById('f-lat').value);
+    const lng = parseFloat(document.getElementById('f-lng').value);
+    if (!isNaN(lat) && !isNaN(lng)) initMap(lat, lng);
+  }
+
+  function getGps() {
+    if (!navigator.geolocation) {
+      showToast('GPS ikke understøttet i denne browser.', 'error');
+      return;
+    }
+    const btn = document.getElementById('gps-btn');
+    btn.textContent = '⏳ Henter...';
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        document.getElementById('f-lat').value = lat.toFixed(6);
+        document.getElementById('f-lng').value = lng.toFixed(6);
+        initMap(lat, lng);
+        btn.textContent = '📍 Hent GPS';
+        btn.disabled = false;
+        showToast('GPS-koordinater hentet.', 'success');
+      },
+      () => {
+        showToast('Kunne ikke hente GPS. Tjek browserens tilladelser.', 'error');
+        btn.textContent = '📍 Hent GPS';
+        btn.disabled = false;
+      }
+    );
+  }
+
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/&/g,'&amp;'); }
+
+  loadArticles();
+</script>
+</body>
+</html>

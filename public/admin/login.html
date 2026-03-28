@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Admin — Log ind</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #18181b;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #71717a;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      background: #fafafa;
+      margin-bottom: 16px;
+    }
+
+    input[type="password"]:focus {
+      border-color: #18181b;
+      background: white;
+    }
+
+    button {
+      width: 100%;
+      background: #18181b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    button:hover:not(:disabled) { background: #3f3f46; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #dc2626;
+      display: none;
+    }
+
+    .countdown {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #71717a;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Blog Admin</h1>
+    <p>Indtast adgangskode for at fortsætte.</p>
+
+    <form id="login-form" onsubmit="doLogin(event)">
+      <label for="password">Adgangskode</label>
+      <input type="password" id="password" autocomplete="current-password" autofocus>
+      <button type="submit" id="submit-btn">Log ind</button>
+    </form>
+
+    <div class="error" id="error-msg"></div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <script>
+    let countdownTimer = null;
+
+    // Allerede logget ind?
+    if (localStorage.getItem('blog_token')) {
+      window.location.href = '/admin/';
+    }
+
+    async function doLogin(e) {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          localStorage.setItem('blog_token', data.token);
+          window.location.href = '/admin/';
+        } else if (res.status === 429) {
+          showError(data.error);
+          startCountdown(data.seconds);
+        } else {
+          showError(data.error);
+          btn.disabled = false;
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      } catch {
+        showError('Kunne ikke forbinde til serveren.');
+        btn.disabled = false;
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function startCountdown(seconds) {
+      const el = document.getElementById('countdown');
+      const btn = document.getElementById('submit-btn');
+
+      if (countdownTimer) clearInterval(countdownTimer);
+
+      let remaining = seconds;
+      el.style.display = 'block';
+
+      function tick() {
+        if (remaining <= 0) {
+          clearInterval(countdownTimer);
+          el.style.display = 'none';
+          btn.disabled = false;
+          document.getElementById('password').focus();
+          return;
+        }
+        el.textContent = `Prøv igen om ${remaining} sekund${remaining !== 1 ? 'er' : ''}.`;
+        remaining--;
+      }
+
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+    }
+  </script>
+</body>
+</html>

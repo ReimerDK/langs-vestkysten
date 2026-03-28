@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Langs Vestkysten</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-width: 42%;
+      --bg: #f7f5f2;
+      --surface: #ffffff;
+      --border: #e8e4df;
+      --text: #1a1612;
+      --muted: #8a8078;
+      --accent: #1d4ed8;
+      --route-done: #2563eb;
+      --route-plan: #cbd5e1;
+      --serif: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+
+    /* Layout */
+    .layout {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--bg);
+      flex-shrink: 0;
+      scroll-behavior: smooth;
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Map panel */
+    .map-panel {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 48px;
+      position: relative;
+    }
+
+    .hero-tag {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(42px, 5vw, 68px);
+      line-height: 1.05;
+      color: var(--text);
+      margin-bottom: 20px;
+      font-weight: normal;
+    }
+
+    .hero-desc {
+      font-family: var(--sans);
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 320px;
+      margin-bottom: 48px;
+    }
+
+    .hero-route {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .hero-route-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .hero-route-line {
+      width: 32px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 48px;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(4px); }
+    }
+
+    /* Divider */
+    .section-divider {
+      padding: 0 48px;
+      margin-bottom: 8px;
+    }
+
+    .section-divider span {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Article cards */
+    .articles-list {
+      padding: 0 32px 120px;
+    }
+
+    .article-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+    }
+
+    .article-card:hover {
+      border-color: #c5bdb5;
+    }
+
+    .article-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.08);
+    }
+
+    .card-image {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-body {
+      padding: 20px 24px;
+    }
+
+    .card-meta-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .card-date {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .card-location {
+      font-family: var(--sans);
+      font-size: 11px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .card-title {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.25;
+      color: var(--text);
+      margin-bottom: 6px;
+      font-weight: normal;
+    }
+
+    .card-subtitle {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .card-toggle {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: gap 0.2s;
+    }
+
+    .card-toggle:hover { gap: 10px; }
+
+    /* Expanded content */
+    .card-expand {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+    }
+
+    .card-expand.open {
+      max-height: 4000px;
+    }
+
+    .card-expand-inner {
+      padding: 0 24px 24px;
+      border-top: 1px solid var(--border);
+      margin-top: 16px;
+      padding-top: 20px;
+    }
+
+    .article-body {
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.75;
+      color: #2d2826;
+    }
+
+    .article-body h2 { font-family: var(--serif); font-size: 20px; margin: 20px 0 8px; font-weight: normal; }
+    .article-body h3 { font-family: var(--serif); font-size: 17px; margin: 16px 0 6px; font-weight: normal; }
+    .article-body p { margin-bottom: 12px; }
+    .article-body ul, .article-body ol { padding-left: 20px; margin-bottom: 12px; }
+    .article-body blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--muted); margin: 16px 0; font-style: italic; }
+    .article-body a { color: var(--accent); }
+    .article-body strong { font-weight: 600; }
+
+    /* Image gallery */
+    .card-gallery {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-top: 20px;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+
+    .card-gallery img {
+      height: 120px;
+      width: auto;
+      border-radius: 6px;
+      object-fit: cover;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card-gallery img:hover { opacity: 0.85; }
+
+    /* Empty state */
+    .empty-state {
+      padding: 48px;
+      text-align: center;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Arrival */
+    .arrival {
+      min-height: 60vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 48px;
+      text-align: left;
+    }
+
+    .arrival h2 {
+      font-family: var(--serif);
+      font-size: 36px;
+      color: var(--text);
+      font-weight: normal;
+      margin-bottom: 12px;
+    }
+
+    .arrival p {
+      font-family: var(--sans);
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    /* Lightbox */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+
+    /* Map car marker */
+    .car-marker {
+      font-size: 24px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      transition: transform 0.1s;
+    }
+
+    /* Map location dot */
+    .loc-dot {
+      width: 12px;
+      height: 12px;
+      background: white;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    .loc-dot:hover {
+      transform: scale(1.6);
+      background: var(--accent);
+    }
+
+    .loc-dot.visited {
+      background: var(--accent);
+    }
+
+    /* Progress bar on map */
+    .map-progress {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: white;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--muted);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      pointer-events: none;
+    }
+
+    .map-progress strong {
+      display: block;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; }
+
+      .layout { flex-direction: column; height: auto; }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        overflow: visible;
+        order: 2;
+      }
+
+      .map-panel {
+        width: 100%;
+        height: 45vh;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        order: 1;
+      }
+
+      .hero { min-height: auto; padding: 40px 24px 48px; }
+      .hero h1 { font-size: 36px; }
+      .scroll-hint { left: 24px; }
+      .section-divider { padding: 0 24px; }
+      .articles-list { padding: 0 16px 60px; }
+      .arrival { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Left: scrollable sidebar -->
+  <div class="sidebar" id="sidebar">
+    <section class="hero">
+      <div class="hero-tag">Rejseblog</div>
+      <h1>Langs Vestkysten</h1>
+      <p class="hero-desc">Fra den dansk-tyske grænse ned langs Europas vestkyst — hele vejen til Gibraltar.</p>
+      <div class="hero-route">
+        <div class="hero-route-dot"></div>
+        <span>Padborg</span>
+        <div class="hero-route-line"></div>
+        <span style="color:var(--text)">Gibraltar</span>
+        <div class="hero-route-dot" style="background:#94a3b8"></div>
+      </div>
+      <div class="scroll-hint">Scroll for at følge rejsen ↓</div>
+    </section>
+
+    <div class="section-divider" id="section-divider" style="display:none">
+      <span>Opslag fra turen</span>
+    </div>
+
+    <div class="articles-list" id="articles-list">
+      <div class="empty-state" id="empty-state">
+        <p>Rejsen er endnu ikke begyndt.<br>Følg med her når vi ruller afsted.</p>
+      </div>
+    </div>
+
+    <section class="arrival" id="arrival" style="display:none">
+      <h2>Gibraltar</h2>
+      <p>Sydspidsen af Europa. Endestationen.</p>
+    </section>
+  </div>
+
+  <!-- Right: fixed map -->
+  <div class="map-panel">
+    <div id="map"></div>
+    <div class="map-progress" id="map-progress" style="display:none">
+      <strong id="progress-location">Padborg</strong>
+      <span id="progress-date"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+// ─── Rute-waypoints langs vestkysten ────────────────────────────────
+const ROUTE = [
+  [54.82, 9.36],   // Padborg / DK-DE grænse
+  [54.67, 9.55],   // Flensburg
+  [53.87, 9.98],   // Neumünster
+  [53.55, 9.99],   // Hamburg
+  [53.45, 8.81],   // Bremen omegn
+  [53.08, 8.80],   // Bremen
+  [53.22, 7.47],   // Oldenburg omegn
+  [53.54, 7.21],   // Emden
+  [52.38, 4.64],   // Amsterdam-omegn
+  [52.37, 4.90],   // Amsterdam
+  [52.07, 4.31],   // Den Haag
+  [51.92, 4.47],   // Rotterdam
+  [51.46, 3.56],   // Breskens, Zeeland
+  [51.23, 2.92],   // De Panne, Belgien
+  [51.03, 2.37],   // Dunkerque
+  [50.72, 1.60],   // Boulogne-sur-Mer
+  [50.07, 1.61],   // Dieppe
+  [49.44, -0.37],  // Caen
+  [48.65, -1.98],  // St-Malo
+  [47.88, -2.54],  // Vannes-omegn
+  [47.22, -1.55],  // Nantes
+  [46.67, -1.43],  // La Roche-sur-Yon
+  [46.16, -1.15],  // La Rochelle
+  [45.68, -1.03],  // Rochefort
+  [44.84, -0.57],  // Bordeaux
+  [44.53, -1.25],  // Arcachon
+  [43.49, -1.48],  // Bayonne
+  [43.31, -1.97],  // San Sebastián
+  [43.26, -2.92],  // Bilbao
+  [43.46, -3.81],  // Santander
+  [43.36, -5.85],  // Gijón
+  [43.37, -8.40],  // A Coruña
+  [42.02, -8.65],  // Vigo
+  [41.15, -8.61],  // Porto
+  [40.64, -8.65],  // Aveiro
+  [39.74, -8.81],  // Leiria
+  [38.72, -9.14],  // Lissabon
+  [37.95, -8.86],  // Setúbal
+  [37.02, -7.93],  // Faro
+  [36.72, -6.29],  // Cádiz
+  [36.14, -5.35],  // Gibraltar
+];
+
+const START = ROUTE[0];
+const END   = ROUTE[ROUTE.length - 1];
+
+// ─── Kort ───────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [48, -2],
+  zoom: 5,
+  zoomControl: true,
+  scrollWheelZoom: true,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 18,
+}).addTo(map);
+
+// Planlagt rute (lys)
+const routeLine = L.polyline(ROUTE, {
+  color: '#cbd5e1',
+  weight: 3,
+  opacity: 0.8,
+  lineJoin: 'round',
+}).addTo(map);
+
+// Bil-markør (RV)
+const carIcon = L.divIcon({
+  html: '<div class="car-marker">🚐</div>',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  className: '',
+});
+
+const carMarker = L.marker(START, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
+
+// ─── Artikel-dot-markører ────────────────────────────────────────────
+const locationDots = {};
+
+function addLocationDot(article) {
+  if (!article.latitude || !article.longitude) return;
+  const div = L.divIcon({
+    html: `<div class="loc-dot" id="dot-${article.id}"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+    className: '',
+  });
+  const m = L.marker([article.latitude, article.longitude], { icon: div })
+    .addTo(map)
+    .bindTooltip(article.title, { direction: 'top', offset: [0, -8] });
+
+  m.on('click', () => openCardFromMap(article.id));
+  locationDots[article.id] = m;
+}
+
+async function openCardFromMap(id) {
+  const sidebar = document.getElementById('sidebar');
+  const card = document.querySelector(`.article-card[data-id="${id}"]`);
+  if (!card) return;
+
+  // Flyt bil og aktiver prik
+  const article = articlesById[id];
+  if (article) {
+    document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    activateArticle(article);
+  }
+
+  // Scroll sidebar til artiklen
+  const cardTop = card.offsetTop - sidebar.offsetTop;
+  sidebar.scrollTo({ top: cardTop - 24, behavior: 'smooth' });
+
+  // Åbn artiklen hvis den ikke allerede er åben
+  const expand = document.getElementById(`expand-${id}`);
+  if (!expand.classList.contains('open')) {
+    const btn = card.querySelector('.card-toggle');
+    await toggleCard({ stopPropagation: () => {} }, id, btn);
+  }
+}
+
+// ─── Bil-animation ───────────────────────────────────────────────────
+let animFrame = null;
+let carPos = { lat: START[0], lng: START[1] };
+
+function animateCarTo(lat, lng, duration = 800) {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  const fromLat = carPos.lat, fromLng = carPos.lng;
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1 + (4-2*t)*t; // ease-in-out
+    const lat2 = fromLat + (lat - fromLat) * ease;
+    const lng2 = fromLng + (lng - fromLng) * ease;
+    carMarker.setLatLng([lat2, lng2]);
+    carPos = { lat: lat2, lng: lng2 };
+    if (t < 1) animFrame = requestAnimationFrame(step);
+  }
+
+  animFrame = requestAnimationFrame(step);
+}
+
+// ─── Aktiver artikel ─────────────────────────────────────────────────
+let activeId = null;
+
+function activateArticle(article) {
+  if (!article.latitude || !article.longitude) return;
+  activeId = article.id;
+
+  animateCarTo(article.latitude, article.longitude);
+  map.flyTo([article.latitude, article.longitude], Math.max(map.getZoom(), 7), { animate: true, duration: 1.2 });
+  highlightDot(article.id);
+  showProgress(article);
+
+  // Synkroniser scroll-indeks så næste scroll starter herfra
+  const idx = gpsArticles.findIndex(a => a.id === article.id);
+  if (idx !== -1) lastScrollIdx = idx;
+}
+
+// ─── Scroll-drevet bil-bevægelse ─────────────────────────────────────
+let gpsArticles = [];
+let cardTops = [];
+let lastScrollIdx = -1;
+
+function setupScrollDriving(articles) {
+  gpsArticles = articles.filter(a => a.latitude && a.longitude);
+  if (!gpsArticles.length) return;
+
+  cardTops = gpsArticles.map(a => {
+    const card = document.querySelector(`.article-card[data-id="${a.id}"]`);
+    return card ? card.offsetTop : 0;
+  });
+
+  // Startposition: første artikel
+  const first = gpsArticles[0];
+  carMarker.setLatLng([first.latitude, first.longitude]);
+  carPos = { lat: first.latitude, lng: first.longitude };
+  map.setView([first.latitude, first.longitude], 8);
+  highlightDot(first.id);
+  showProgress(first);
+
+  document.getElementById('sidebar').addEventListener('scroll', onSidebarScroll);
+}
+
+function onSidebarScroll() {
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+
+  const scrollTop = document.getElementById('sidebar').scrollTop;
+  const n = gpsArticles.length;
+  if (!n) return;
+
+  if (scrollTop <= cardTops[0]) {
+    moveCar(gpsArticles[0].latitude, gpsArticles[0].longitude, 0);
+    return;
+  }
+  if (scrollTop >= cardTops[n - 1]) {
+    moveCar(gpsArticles[n-1].latitude, gpsArticles[n-1].longitude, n - 1);
+    return;
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    if (scrollTop >= cardTops[i] && scrollTop < cardTops[i + 1]) {
+      const t = (scrollTop - cardTops[i]) / (cardTops[i + 1] - cardTops[i]);
+      const lat = gpsArticles[i].latitude + (gpsArticles[i+1].latitude - gpsArticles[i].latitude) * t;
+      const lng = gpsArticles[i].longitude + (gpsArticles[i+1].longitude - gpsArticles[i].longitude) * t;
+      moveCar(lat, lng, t > 0.5 ? i + 1 : i);
+      break;
+    }
+  }
+}
+
+function moveCar(lat, lng, activeIdx) {
+  carMarker.setLatLng([lat, lng]);
+  carPos = { lat, lng };
+
+  if (activeIdx !== lastScrollIdx) {
+    lastScrollIdx = activeIdx;
+    const article = gpsArticles[activeIdx];
+    if (article) {
+      map.panTo([article.latitude, article.longitude], { animate: true, duration: 0.6 });
+      highlightDot(article.id);
+      showProgress(article);
+    }
+  }
+}
+
+function highlightDot(id) {
+  Object.values(locationDots).forEach(m => {
+    m.getElement()?.querySelector('.loc-dot')?.classList.remove('visited');
+  });
+  locationDots[id]?.getElement()?.querySelector('.loc-dot')?.classList.add('visited');
+}
+
+function showProgress(article) {
+  document.getElementById('map-progress').style.display = 'block';
+  document.getElementById('progress-location').textContent = article.location_name || article.title;
+  document.getElementById('progress-date').textContent = formatDate(article.date);
+}
+
+// ─── Hent og vis artikler ─────────────────────────────────────────────
+const articlesById = {};
+
+async function loadArticles() {
+  let articles = [];
+  try {
+    const res = await fetch('/api/articles');
+    if (!res.ok) throw new Error(`Server fejl: ${res.status}`);
+    articles = await res.json();
+  } catch (err) {
+    console.error('Kunne ikke hente artikler:', err);
+    document.getElementById('empty-state').innerHTML =
+      '<p>⚠️ Kunne ikke hente artikler.<br>Tjek forbindelsen og genindlæs siden.</p>';
+    return;
+  }
+
+  // Sortér ældste først (nord → syd)
+  articles.sort((a, b) => new Date(a.date) - new Date(b.date));
+  articles.forEach(a => { articlesById[a.id] = a; });
+
+  const list = document.getElementById('articles-list');
+  const empty = document.getElementById('empty-state');
+
+  if (articles.length === 0) return;
+
+  empty.remove();
+  document.getElementById('section-divider').style.display = 'block';
+  document.getElementById('arrival').style.display = 'flex';
+  list.innerHTML = '';
+
+  // Tilføj location-dots og byg kort
+  articles.forEach(a => addLocationDot(a));
+
+  articles.forEach(article => {
+    const card = buildCard(article);
+    list.appendChild(card);
+  });
+
+  // IntersectionObserver kun til kortets aktive styling
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.4) {
+        document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
+        entry.target.classList.add('active');
+      }
+    });
+  }, {
+    root: document.getElementById('sidebar'),
+    threshold: 0.4,
+    rootMargin: '-10% 0px -10% 0px',
+  });
+
+  document.querySelectorAll('.article-card').forEach(c => observer.observe(c));
+
+  // Opsæt scroll-drevet bil-bevægelse (efter DOM er klar)
+  setTimeout(() => setupScrollDriving(articles), 100);
+}
+
+// ─── Byg artikel-kort ────────────────────────────────────────────────
+function buildCard(article) {
+  const card = document.createElement('article');
+  card.className = 'article-card';
+  card.dataset.id = article.id;
+
+  const firstImg = article.images?.[0];
+  const imgHtml = firstImg
+    ? `<img class="card-image" src="${esc(firstImg.image_url)}" alt="" onerror="this.style.display='none'">`
+    : '';
+
+  const locHtml = article.location_name
+    ? `<span class="card-location">📍 ${esc(article.location_name)}</span>`
+    : '';
+
+  card.innerHTML = `
+    ${imgHtml}
+    <div class="card-body">
+      <div class="card-meta-top">
+        <span class="card-date">${formatDate(article.date)}</span>
+        ${locHtml}
+      </div>
+      <h2 class="card-title">${esc(article.title)}</h2>
+      ${article.subtitle ? `<p class="card-subtitle">${esc(article.subtitle)}</p>` : ''}
+      <button class="card-toggle" onclick="toggleCard(event, ${article.id}, this)">
+        Læs mere <span>→</span>
+      </button>
+    </div>
+    <div class="card-expand" id="expand-${article.id}"></div>
+  `;
+
+  // Klik på kortet aktiverer kortet, prikken og åbner artiklen
+  card.addEventListener('click', (e) => {
+    document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    activateArticle(article);
+
+    const btn = card.querySelector('.card-toggle');
+    const expand = document.getElementById(`expand-${article.id}`);
+    if (!expand.classList.contains('open')) {
+      toggleCard(e, article.id, btn);
+    }
+  });
+
+  return card;
+}
+
+// ─── Udvid / kollaps artikel ─────────────────────────────────────────
+async function toggleCard(e, id, btn) {
+  e.stopPropagation();
+  const expand = document.getElementById(`expand-${id}`);
+  const isOpen = expand.classList.contains('open');
+
+  if (isOpen) {
+    expand.classList.remove('open');
+    btn.innerHTML = 'Læs mere <span>→</span>';
+    setTimeout(() => { expand.innerHTML = ''; }, 400);
+    return;
+  }
+
+  btn.innerHTML = 'Henter... <span></span>';
+
+  try {
+    const res = await fetch(`/api/articles/${id}`);
+    const article = await res.json();
+
+    const galleryHtml = (article.images?.length > 0)
+      ? `<div class="card-gallery">${article.images.map(img =>
+          `<img src="${esc(img.image_url)}" onclick="openLightbox('${esc(img.image_url)}')" alt="" onerror="this.style.display='none'">`
+        ).join('')}</div>`
+      : '';
+
+    expand.innerHTML = `
+      <div class="card-expand-inner">
+        <div class="article-body">${DOMPurify.sanitize(article.content || '')}</div>
+        ${galleryHtml}
+      </div>
+    `;
+    expand.classList.add('open');
+    btn.innerHTML = 'Luk <span>↑</span>';
+  } catch {
+    btn.innerHTML = 'Læs mere <span>→</span>';
+  }
+}
+
+// ─── Lightbox ─────────────────────────────────────────────────────────
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ─── Hjælpefunktioner ────────────────────────────────────────────────
+function formatDate(str) {
+  if (!str) return '';
+  return new Date(str + 'T12:00:00').toLocaleDateString('da-DK', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Indlæs site-indstillinger ───────────────────────────────────────
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return;
+    const s = await res.json();
+    if (s.site_tag)         document.querySelector('.hero-tag').textContent = s.site_tag;
+    if (s.site_title)       document.querySelector('.hero h1').textContent  = s.site_title;
+    if (s.site_description) document.querySelector('.hero-desc').textContent = s.site_description;
+    if (s.start_location) {
+      document.querySelector('.hero-route span:first-of-type').textContent = s.start_location;
+      document.getElementById('progress-location').textContent = s.start_location;
+    }
+    if (s.end_location) {
+      document.querySelector('.hero-route span:last-of-type').textContent = s.end_location;
+      document.querySelector('#arrival h2').textContent = s.end_location;
+    }
+    if (s.site_title)       document.title = s.site_title;
+  } catch (err) {
+    console.warn('Kunne ikke hente indstillinger:', err);
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────────────────
+loadSettings();
+loadArticles();
+</script>
+</body>
+</html>
