@@ -806,9 +806,13 @@
       if (item.type === 'url' && item.url) {
         meta.push({ type: 'url', url: item.url });
       } else if (item.type === 'upload' && item.file) {
+        // Nyt upload — vedhæft fil
         const field = `image_${item.idx}`;
         meta.push({ type: 'upload', field });
         formData.append(field, item.file);
+      } else if (item.type === 'upload' && item.url && !item.file) {
+        // Eksisterende gemt upload — behold via URL
+        meta.push({ type: 'url', url: item.url });
       }
     }
     formData.append('images_meta', JSON.stringify(meta));
