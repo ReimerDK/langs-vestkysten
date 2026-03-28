@@ -19,15 +19,17 @@ app.set('trust proxy', 1);
 // Fjern Express-fingerprint
 app.disable('x-powered-by');
 
-// CORS — tillad kun kendte origins i produktion
+// CORS — tillad kun kendte origins hvis ALLOWED_ORIGINS er sat, ellers alle
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3001', 'http://localhost:3000'];
+  : null;
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Tillad requests uden origin (server-til-server, curl)
+    // Tillad requests uden origin (server-til-server, curl, same-origin)
     if (!origin) return cb(null, true);
+    // Hvis ingen ALLOWED_ORIGINS sat — tillad alle (development/ikke-konfigureret)
+    if (!allowedOrigins) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error('CORS ikke tilladt'));
   },
