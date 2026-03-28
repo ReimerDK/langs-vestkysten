@@ -83,10 +83,15 @@ db.exec(`
 `);
 
 // Sæt adgangskode hvis den ikke allerede findes
+// Brug ADMIN_PASSWORD miljøvariabel, eller fallback til 'tranevej' lokalt
 const existing = db.prepare("SELECT value FROM settings WHERE key = 'password'").get();
 if (!existing) {
-  const hash = bcrypt.hashSync('tranevej', 12);
+  const initPassword = process.env.ADMIN_PASSWORD || 'tranevej';
+  const hash = bcrypt.hashSync(initPassword, 12);
   db.prepare("INSERT INTO settings (key, value) VALUES ('password', ?)").run(hash);
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn('ADVARSEL: Ingen ADMIN_PASSWORD sat — bruger standardadgangskode. Sæt ADMIN_PASSWORD i miljøvariabler.');
+  }
 }
 
 // Seed standard site-tekster
@@ -109,5 +114,11 @@ for (const [key, value] of Object.entries(siteDefaults)) {
 
 // Ryd udløbne sessioner ved opstart
 db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+
+// Ryd udløbne sessioner og gamle login-forsøg hver time
+setInterval(() => {
+  db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+  db.prepare("DELETE FROM login_attempts WHERE locked_until IS NULL OR locked_until <= datetime('now', '-1 day')").run();
+}, 60 * 60 * 1000);
 
 module.exports = db;

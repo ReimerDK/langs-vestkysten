@@ -18,7 +18,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 20, fields: 30 },
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif|webp/;
     const ok = allowed.test(path.extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype);
@@ -26,11 +26,16 @@ const upload = multer({
   }
 });
 
-// Valider at en URL er http/https
+// Privat IP-ranges der skal blokeres (SSRF-beskyttelse)
+const PRIVATE_IP = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|169\.254\.|::1|fc00:|fe80:)/i;
+
+// Valider at en URL er http/https og ikke peger på interne netværk (SSRF)
 function isValidHttpUrl(str) {
   try {
     const u = new URL(str);
-    return u.protocol === 'http:' || u.protocol === 'https:';
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (PRIVATE_IP.test(u.hostname)) return false;
+    return true;
   } catch {
     return false;
   }
@@ -92,9 +97,14 @@ function validateArticleFields(body) {
 
   if (!title || title.trim().length === 0) return 'title er påkrævet';
   if (title.length > 300) return 'title må maks. være 300 tegn';
+  if (body.subtitle && body.subtitle.length > 500) return 'subtitle må maks. være 500 tegn';
+  if (body.location_name && body.location_name.length > 200) return 'location_name må maks. være 200 tegn';
   if (!date) return 'date er påkrævet';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date)))
     return 'Ugyldig dato (skal være YYYY-MM-DD)';
+  const articleDate = new Date(date);
+  const maxDate = new Date(); maxDate.setFullYear(maxDate.getFullYear() + 1);
+  if (articleDate > maxDate) return 'Dato kan ikke være mere end 1 år frem i tiden';
   if (!content || content.trim().length === 0) return 'content er påkrævet';
   if (content.length > 200000) return 'content er for langt';
 

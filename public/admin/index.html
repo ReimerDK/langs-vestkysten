@@ -471,6 +471,7 @@
   </style>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/quill@2.0.3/dist/quill.js"></script>
+  <script src="https://unpkg.com/dompurify@3.1.6/dist/purify.min.js"></script>
 </head>
 <body>
 
@@ -668,7 +669,7 @@
       }
     });
 
-    if (article?.content) quill.root.innerHTML = article.content;
+    if (article?.content) quill.root.innerHTML = DOMPurify.sanitize(article.content);
 
     // Indlæs eksisterende billeder
     if (article?.images?.length) {
