@@ -579,7 +579,9 @@
 
     /* ─── Mobil artikel-overlay ─────────────────────────────────────── */
     #mobile-overlay {
-      position: fixed; inset: 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      right: 52px; /* frihold scrubber-sporet i højre side */
       z-index: 200;
       background: var(--bg);
       overflow-y: auto;
