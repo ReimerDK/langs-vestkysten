@@ -486,43 +486,43 @@
       position: fixed;
       right: 0;
       top: 80px;
-      bottom: 160px; /* plads til strip i bunden */
+      bottom: 160px;
       width: 52px;
-      z-index: 60;
-      justify-content: center;
-      align-items: stretch;
-      padding: 0 14px;
+      z-index: 1100; /* over Leaflets egne kontroller (z-index 1000) */
+      flex-direction: column;   /* vertikal akse */
+      align-items: center;      /* centrér sporet vandret */
+      padding: 10px 0;
       touch-action: none;
     }
     #mobile-scrubber-track {
-      flex: 1;
-      background: rgba(181,137,90,0.18);
-      border-radius: 3px;
+      width: 4px;
+      flex: 1;                  /* fylder hele højden */
+      background: rgba(253,251,247,0.35);
+      border-radius: 2px;
       position: relative;
-      width: 3px;
-      margin: 0 auto;
+      box-shadow: 0 0 0 1px rgba(181,137,90,0.25);
     }
     #mobile-scrubber-thumb {
       position: absolute;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 40px; height: 40px;
+      width: 44px; height: 44px;
       border-radius: 50%;
       background: var(--accent);
-      box-shadow: 0 2px 14px rgba(181,137,90,0.55);
+      box-shadow: 0 2px 16px rgba(181,137,90,0.6), 0 0 0 3px rgba(253,251,247,0.8);
       top: 0;
       cursor: grab;
       touch-action: none;
     }
-    #mobile-scrubber-thumb:active { cursor: grabbing; }
+    #mobile-scrubber-thumb:active { cursor: grabbing; transform: translate(-50%, -50%) scale(0.93); }
     .scrubber-stop {
       position: absolute;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 9px; height: 9px;
+      width: 10px; height: 10px;
       border-radius: 50%;
       background: var(--accent);
-      opacity: 0.35;
+      opacity: 0.5;
       pointer-events: none;
     }
 
