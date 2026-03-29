@@ -926,9 +926,9 @@ function setupMobileScrubber(mobileGps) {
 
     const raw    = fraction * (n - 1);
     const iFloor = Math.min(Math.floor(raw), n - 2);
-    const t      = raw - Math.floor(raw);
+    const t      = n > 1 ? raw - Math.floor(raw) : 0;
 
-    // Interpolér bil direkte mellem to GPS-punkter
+    // Interpolér bil glat mellem to GPS-punkter — ingen kortpanning under drag
     let lat, lng;
     if (n === 1 || iFloor >= n - 1) {
       lat = mobileGps[n - 1].latitude;
@@ -940,14 +940,20 @@ function setupMobileScrubber(mobileGps) {
     carMarker.setLatLng([lat, lng]);
     carPos = { lat, lng };
 
-    // Aktiver artikel ved midtpunkt
+    // Opdatér kun dot-highlight under drag (ingen map.panTo / strip-scroll = ingen ryk)
     const activeI = Math.min(t >= 0.5 ? Math.ceil(raw) : Math.floor(raw), n - 1);
     if (activeI !== lastMobileIdx) {
       lastMobileIdx = activeI;
-      const a = mobileGps[activeI];
-      map.panTo([a.latitude, a.longitude], { animate: true, duration: 0.3 });
-      highlightDot(a.id);
-      scrollStripToIndex(activeI);
+      highlightDot(mobileGps[activeI].id);
+    }
+  }
+
+  // Når brugeren slipper: pan kort og synkronisér strip (ét enkelt kald, ingen ryk under drag)
+  function finalizeScrub() {
+    const a = mobileGps[lastMobileIdx];
+    if (a) {
+      map.flyTo([a.latitude, a.longitude], Math.max(map.getZoom(), 8), { animate: true, duration: 0.6 });
+      scrollStripToIndex(lastMobileIdx);
     }
   }
 
@@ -963,13 +969,13 @@ function setupMobileScrubber(mobileGps) {
     applyClientY(e.touches[0].clientY);
     e.preventDefault();
   }, { passive: false });
-  document.addEventListener('touchend',   () => { dragging = false; });
-  document.addEventListener('touchcancel', () => { dragging = false; });
+  document.addEventListener('touchend',    () => { if (dragging) finalizeScrub(); dragging = false; });
+  document.addEventListener('touchcancel', () => { if (dragging) finalizeScrub(); dragging = false; });
 
   // Mouse (desktop-test)
   scrubber.addEventListener('mousedown', e => { dragging = true; applyClientY(e.clientY); });
   document.addEventListener('mousemove', e => { if (dragging) applyClientY(e.clientY); });
-  document.addEventListener('mouseup',   () => { dragging = false; });
+  document.addEventListener('mouseup',   () => { if (dragging) finalizeScrub(); dragging = false; });
 
   requestAnimationFrame(() => { positionStops(); setThumb(0); });
 
