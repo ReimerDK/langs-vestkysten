@@ -468,18 +468,123 @@
       margin-bottom: 2px;
     }
 
-    /* ─── Mobile ───────────────────────────────────────────────────── */
+    /* ─── Mobile layout ────────────────────────────────────────────── */
     @media (max-width: 768px) {
-      html, body { overflow: auto; }
-      .layout { flex-direction: column; height: auto; }
-      .sidebar { width: 100%; height: auto; overflow: visible; order: 2; }
-      .map-panel { width: 100%; height: 45vh; position: sticky; top: 0; z-index: 10; order: 1; }
-      .hero { min-height: auto; padding: 48px 24px 56px; }
-      .hero h1 { font-size: 40px; }
-      .scroll-hint { left: 24px; bottom: 28px; }
-      .section-divider { padding: 0 24px; }
-      .articles-list { padding: 0 16px 60px; }
-      .arrival { padding: 48px 24px; min-height: auto; }
+      html, body { overflow: hidden; }
+      .layout { display: block; height: 100%; }
+      .sidebar { display: none; }
+      .map-panel { position: fixed; inset: 0; width: 100%; height: 100%; }
+      #map { width: 100%; height: 100%; }
+      .map-progress { display: none !important; }
+      #mobile-strip { display: flex; }
+    }
+
+    /* ─── Mobil artikel-strip (horisontal scroll-snap) ─────────────── */
+    #mobile-strip {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 50;
+      overflow-x: scroll;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      align-items: flex-end;
+      gap: 10px;
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+    }
+    #mobile-strip::-webkit-scrollbar { display: none; }
+
+    .mobile-strip-spacer { flex: 0 0 22px; }
+
+    .mobile-pill {
+      flex: 0 0 calc(100vw - 44px);
+      scroll-snap-align: center;
+      background: rgba(253,251,247,0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 20px;
+      padding: 16px 20px 18px;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      box-shadow: 0 8px 32px rgba(28,20,16,0.16);
+      transition: border-color 0.3s cubic-bezier(0.32,0.72,0,1),
+                  box-shadow  0.3s cubic-bezier(0.32,0.72,0,1);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-pill.active {
+      border-color: rgba(181,137,90,0.5);
+      box-shadow: 0 8px 32px rgba(181,137,90,0.2);
+    }
+    .mobile-pill-meta {
+      font-family: var(--sans);
+      font-size: 11px; font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 5px;
+    }
+    .mobile-pill-title {
+      font-family: var(--serif);
+      font-size: 20px; font-weight: 700;
+      color: var(--text); line-height: 1.25;
+    }
+    .mobile-pill-subtitle {
+      font-family: var(--sans);
+      font-size: 13px; color: var(--muted);
+      margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mobile-pill-cta {
+      margin-top: 12px;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* ─── Mobil artikel-overlay ─────────────────────────────────────── */
+    #mobile-overlay {
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: var(--bg);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
+      pointer-events: none;
+    }
+    #mobile-overlay.open {
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    #mobile-overlay-header {
+      position: sticky; top: 0;
+      background: rgba(253,251,247,0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      z-index: 1;
+    }
+    #mobile-overlay-header-title {
+      font-family: var(--sans); font-size: 14px; font-weight: 600;
+      color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-right: 12px;
+    }
+    #mobile-overlay-close {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 50%; border: none;
+      background: rgba(28,20,16,0.07);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #mobile-overlay-body {
+      padding: 28px 20px;
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 80px);
     }
   </style>
 </head>
@@ -526,6 +631,18 @@
       <span id="progress-date"></span>
     </div>
   </div>
+</div>
+
+<!-- Mobile: horisontal artikel-strip -->
+<div id="mobile-strip"></div>
+
+<!-- Mobile: artikel-overlay -->
+<div id="mobile-overlay">
+  <div id="mobile-overlay-header">
+    <span id="mobile-overlay-header-title"></span>
+    <button id="mobile-overlay-close" onclick="closeMobileOverlay()">✕</button>
+  </div>
+  <div id="mobile-overlay-body"></div>
 </div>
 
 <!-- Lightbox -->
@@ -582,11 +699,16 @@ function addLocationDot(article) {
 }
 
 async function openCardFromMap(id) {
+  // På mobil: åbn overlay direkte
+  if (isMobile()) {
+    openMobileOverlay(id);
+    return;
+  }
+
   const sidebar = document.getElementById('sidebar');
   const card = document.querySelector(`.article-card[data-id="${id}"]`);
   if (!card) return;
 
-  // Flyt bil og aktiver prik
   const article = articlesById[id];
   if (article) {
     document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
@@ -594,16 +716,119 @@ async function openCardFromMap(id) {
     activateArticle(article);
   }
 
-  // Scroll sidebar til artiklen
   const cardTop = card.offsetTop - sidebar.offsetTop;
   sidebar.scrollTo({ top: cardTop - 24, behavior: 'smooth' });
 
-  // Åbn artiklen hvis den ikke allerede er åben
   const expand = document.getElementById(`expand-${id}`);
   if (!expand.classList.contains('open')) {
     const btn = card.querySelector('.card-toggle');
     await toggleCard({ stopPropagation: () => {} }, id, btn);
   }
+}
+
+// ─── Mobil ───────────────────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 768; }
+
+let lastMobileIdx = -1;
+
+function buildMobileStrip(articles) {
+  const mobileGps = articles
+    .filter(a => a.latitude && a.longitude)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  if (!mobileGps.length) return;
+
+  const strip = document.getElementById('mobile-strip');
+  strip.innerHTML = '';
+
+  const spacer = () => { const d = document.createElement('div'); d.className = 'mobile-strip-spacer'; return d; };
+  strip.appendChild(spacer());
+
+  mobileGps.forEach((article, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'mobile-pill' + (i === 0 ? ' active' : '');
+    pill.dataset.idx = i;
+    pill.innerHTML = `
+      <div class="mobile-pill-meta">${formatDate(article.date)}${article.location_name ? ' · ' + esc(article.location_name) : ''}</div>
+      <div class="mobile-pill-title">${esc(article.title)}</div>
+      ${article.subtitle ? `<div class="mobile-pill-subtitle">${esc(article.subtitle)}</div>` : ''}
+      <div class="mobile-pill-cta">Læs artikel <span>→</span></div>
+    `;
+    pill.addEventListener('click', () => openMobileOverlay(article.id));
+    strip.appendChild(pill);
+  });
+
+  strip.appendChild(spacer());
+
+  // Scroll-driver: find den pill der er tættest på strip-centrum
+  strip.addEventListener('scroll', () => {
+    const center = strip.getBoundingClientRect().left + strip.clientWidth / 2;
+    let closest = null, minDist = Infinity;
+    strip.querySelectorAll('.mobile-pill').forEach(p => {
+      const r = p.getBoundingClientRect();
+      const d = Math.abs(r.left + r.width / 2 - center);
+      if (d < minDist) { minDist = d; closest = p; }
+    });
+    if (!closest) return;
+
+    strip.querySelectorAll('.mobile-pill').forEach(p => p.classList.toggle('active', p === closest));
+
+    const idx = parseInt(closest.dataset.idx);
+    if (idx !== lastMobileIdx) {
+      lastMobileIdx = idx;
+      const a = mobileGps[idx];
+      if (a) {
+        animateCarTo(a.latitude, a.longitude);
+        map.flyTo([a.latitude, a.longitude], Math.max(map.getZoom(), 8), { animate: true, duration: 0.8 });
+        highlightDot(a.id);
+      }
+    }
+  }, { passive: true });
+
+  // Start ved første artikel
+  const first = mobileGps[0];
+  animateCarTo(first.latitude, first.longitude);
+  map.setView([first.latitude, first.longitude], 8);
+  highlightDot(first.id);
+}
+
+async function openMobileOverlay(id) {
+  const overlay  = document.getElementById('mobile-overlay');
+  const titleEl  = document.getElementById('mobile-overlay-header-title');
+  const body     = document.getElementById('mobile-overlay-body');
+  const cached   = articlesById[id];
+
+  titleEl.textContent = cached?.title || '';
+  body.innerHTML = '<p style="padding:20px;color:var(--muted)">Henter...</p>';
+  overlay.classList.add('open');
+  overlay.scrollTop = 0;
+
+  try {
+    const res = await fetch(`/api/articles/${id}`);
+    const article = await res.json();
+    titleEl.textContent = article.title;
+
+    const galleryHtml = article.images?.length
+      ? `<div class="card-gallery">${article.images.map(img =>
+          `<img src="${esc(img.image_url)}" onclick="openLightbox('${esc(img.image_url)}')" alt="" onerror="this.style.display='none'">`
+        ).join('')}</div>`
+      : '';
+
+    body.innerHTML = `
+      <p class="mobile-pill-meta">${formatDate(article.date)}${article.location_name ? ' · ' + esc(article.location_name) : ''}</p>
+      <h2 style="font-family:var(--serif);font-size:clamp(22px,6vw,34px);font-weight:700;line-height:1.2;margin:8px 0 12px">${esc(article.title)}</h2>
+      ${article.subtitle ? `<p style="font-family:var(--sans);font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:24px">${esc(article.subtitle)}</p>` : ''}
+      <div class="article-body">${DOMPurify.sanitize(article.content || '')}</div>
+      ${galleryHtml}
+    `;
+  } catch {
+    body.innerHTML = '<p style="padding:20px;color:var(--muted)">Kunne ikke hente artikel.</p>';
+  }
+}
+
+function closeMobileOverlay() {
+  document.getElementById('mobile-overlay').classList.remove('open');
+  document.getElementById('mobile-overlay-body').innerHTML = '';
 }
 
 // ─── Bil-animation ───────────────────────────────────────────────────
@@ -664,7 +889,9 @@ function setupScrollDriving(articles) {
   highlightDot(first.id);
   showProgress(first);
 
-  document.getElementById('sidebar').addEventListener('scroll', onSidebarScroll);
+  if (!isMobile()) {
+    document.getElementById('sidebar').addEventListener('scroll', onSidebarScroll);
+  }
 }
 
 function onSidebarScroll() {
@@ -805,13 +1032,17 @@ async function loadArticles() {
     threshold: 0.05,
   });
 
-  document.querySelectorAll('.article-card').forEach(c => {
-    observer.observe(c);
-    revealObserver.observe(c);
-  });
-
-  // Opsæt scroll-drevet bil-bevægelse (efter DOM er klar)
-  setTimeout(() => setupScrollDriving(articles), 100);
+  if (isMobile()) {
+    // Mobil: byg strip og spring desktop-observers over
+    buildMobileStrip(articles);
+  } else {
+    document.querySelectorAll('.article-card').forEach(c => {
+      observer.observe(c);
+      revealObserver.observe(c);
+    });
+    // Opsæt scroll-drevet bil-bevægelse (efter DOM er klar)
+    setTimeout(() => setupScrollDriving(articles), 100);
+  }
 }
 
 // ─── Byg artikel-kort ────────────────────────────────────────────────
@@ -912,7 +1143,9 @@ function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeLightbox(); closeMobileOverlay(); }
+});
 
 // ─── Hjælpefunktioner ────────────────────────────────────────────────
 function formatDate(str) {
