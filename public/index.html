@@ -692,8 +692,7 @@ function activateArticle(article) {
 }
 
 // ─── Scroll-drevet bil-bevægelse ─────────────────────────────────────
-let gpsArticles = [];
-let cardTops = [];
+let gpsArticles  = [];
 let routeIndices = [];
 let lastScrollIdx = -1;
 
@@ -735,17 +734,15 @@ function interpolateAlongRoute(fromLat, fromLng, fromIdx, toLat, toLng, toIdx, t
 }
 
 function setupScrollDriving(articles) {
-  const rawGps = articles.filter(a => a.latitude && a.longitude);
-  if (!rawGps.length) return;
-
-  // Start med dato-rækkefølge; refreshCardTops sorterer efter DOM-position
-  gpsArticles  = rawGps;
-  routeIndices = gpsArticles.map(a => closestRouteIdx(a.latitude, a.longitude));
-  refreshCardTops();
+  // Sortér efter dato (ældst først = øverst i sidebar) — én gang, røres aldrig igen
+  gpsArticles = articles
+    .filter(a => a.latitude && a.longitude)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!gpsArticles.length) return;
 
-  // Startposition: første artikel (i DOM-rækkefølge)
+  routeIndices = gpsArticles.map(a => closestRouteIdx(a.latitude, a.longitude));
+
   const first = gpsArticles[0];
   carMarker.setLatLng([first.latitude, first.longitude]);
   carPos = { lat: first.latitude, lng: first.longitude };
@@ -756,59 +753,50 @@ function setupScrollDriving(articles) {
   document.getElementById('sidebar').addEventListener('scroll', onSidebarScroll);
 }
 
-function refreshCardTops() {
-  const sidebar = document.getElementById('sidebar');
-  const sidebarRect = sidebar.getBoundingClientRect();
-
-  // Beregn DOM-position for hvert GPS-artikel og sortér altid stigende
-  // Brug Infinity (ikke 0) som fallback — 0 ville gøre "efter-sidste"-tjekket altid sandt
-  const items = gpsArticles.map((a, i) => {
-    const card = document.querySelector(`.article-card[data-id="${a.id}"]`);
-    const top = card
-      ? card.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop
-      : Infinity;
-    return { a, ri: routeIndices[i], top };
-  }).filter(x => isFinite(x.top)).sort((x, y) => x.top - y.top);
-
-  gpsArticles  = items.map(x => x.a);
-  routeIndices = items.map(x => x.ri);
-  cardTops     = items.map(x => x.top);
-}
-
 function onSidebarScroll() {
   if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
 
-  const sidebar = document.getElementById('sidebar');
-  refreshCardTops();
-  const center = sidebar.scrollTop + sidebar.clientHeight / 2;
-  const n = gpsArticles.length;
+  const sidebar    = document.getElementById('sidebar');
+  const sidebarTop = sidebar.getBoundingClientRect().top;
+  const center     = sidebar.scrollTop + sidebar.clientHeight / 2;
+  const n          = gpsArticles.length;
   if (!n) return;
 
-  // Før første artikel
-  if (center <= cardTops[0]) {
-    moveCar(gpsArticles[0].latitude, gpsArticles[0].longitude, 0);
+  // Beregn kortpositioner frisk (ingen global cache der kan blive forældet)
+  const tops = gpsArticles.map(a => {
+    const card = document.querySelector(`.article-card[data-id="${a.id}"]`);
+    if (!card) return null;
+    return card.getBoundingClientRect().top - sidebarTop + sidebar.scrollTop;
+  });
+
+  // Find det højeste index i gpsArticles (dato-rækkefølge) hvis kort-top er ≤ center.
+  // Scan ALLE — ingen tidlig afslutning — så et enkelt null/forkert tal ikke ødelægger resultatet.
+  let activeI = 0;
+  for (let i = 0; i < n; i++) {
+    if (tops[i] !== null && tops[i] <= center) activeI = i;
+  }
+
+  // Forbi eller ved den sidst kendte artikel
+  if (activeI === n - 1 || tops[activeI + 1] === null) {
+    moveCar(gpsArticles[activeI].latitude, gpsArticles[activeI].longitude, activeI);
     return;
   }
 
-  // Efter sidste artikel
-  if (center >= cardTops[n - 1]) {
-    moveCar(gpsArticles[n-1].latitude, gpsArticles[n-1].longitude, n - 1);
+  // Interpolér blødt mellem artikel activeI og activeI+1
+  const fromTop = tops[activeI];
+  const toTop   = tops[activeI + 1];
+  if (toTop <= fromTop) {
+    moveCar(gpsArticles[activeI].latitude, gpsArticles[activeI].longitude, activeI);
     return;
   }
 
-  // Interpolér blødtlæng ruten mellem to artikler
-  for (let i = 0; i < n - 1; i++) {
-    if (center >= cardTops[i] && center < cardTops[i + 1]) {
-      const t = (center - cardTops[i]) / (cardTops[i + 1] - cardTops[i]);
-      const pos = interpolateAlongRoute(
-        gpsArticles[i].latitude,   gpsArticles[i].longitude,   routeIndices[i],
-        gpsArticles[i+1].latitude, gpsArticles[i+1].longitude, routeIndices[i+1],
-        t
-      );
-      moveCar(pos.lat, pos.lng, t >= 0.5 ? i + 1 : i);
-      return;
-    }
-  }
+  const t = Math.max(0, Math.min(1, (center - fromTop) / (toTop - fromTop)));
+  const pos = interpolateAlongRoute(
+    gpsArticles[activeI].latitude,   gpsArticles[activeI].longitude,   routeIndices[activeI],
+    gpsArticles[activeI+1].latitude, gpsArticles[activeI+1].longitude, routeIndices[activeI+1],
+    t
+  );
+  moveCar(pos.lat, pos.lng, t >= 0.5 ? activeI + 1 : activeI);
 }
 
 function moveCar(lat, lng, activeIdx) {
