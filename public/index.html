@@ -477,6 +477,53 @@
       #map { width: 100%; height: 100%; }
       .map-progress { display: none !important; }
       #mobile-strip { display: flex; }
+      #mobile-scrubber { display: flex; }
+    }
+
+    /* ─── Mobil scrubber (vertikal scroll-håndtag, højre side) ──────── */
+    #mobile-scrubber {
+      display: none;
+      position: fixed;
+      right: 0;
+      top: 80px;
+      bottom: 160px; /* plads til strip i bunden */
+      width: 52px;
+      z-index: 60;
+      justify-content: center;
+      align-items: stretch;
+      padding: 0 14px;
+      touch-action: none;
+    }
+    #mobile-scrubber-track {
+      flex: 1;
+      background: rgba(181,137,90,0.18);
+      border-radius: 3px;
+      position: relative;
+      width: 3px;
+      margin: 0 auto;
+    }
+    #mobile-scrubber-thumb {
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 2px 14px rgba(181,137,90,0.55);
+      top: 0;
+      cursor: grab;
+      touch-action: none;
+    }
+    #mobile-scrubber-thumb:active { cursor: grabbing; }
+    .scrubber-stop {
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.35;
+      pointer-events: none;
     }
 
     /* ─── Mobil artikel-strip (horisontal scroll-snap) ─────────────── */
@@ -636,6 +683,13 @@
 <!-- Mobile: horisontal artikel-strip -->
 <div id="mobile-strip"></div>
 
+<!-- Mobile: vertikal scrubber (højre side) -->
+<div id="mobile-scrubber">
+  <div id="mobile-scrubber-track">
+    <div id="mobile-scrubber-thumb"></div>
+  </div>
+</div>
+
 <!-- Mobile: artikel-overlay -->
 <div id="mobile-overlay">
   <div id="mobile-overlay-header">
@@ -785,11 +839,19 @@ function buildMobileStrip(articles) {
     }
   }, { passive: true });
 
+  // Strip-scroll synkroniserer også scrubber-thumb
+  strip.addEventListener('scroll', () => {
+    if (window._syncScrubber) window._syncScrubber(lastMobileIdx);
+  }, { passive: true });
+
   // Start ved første artikel
   const first = mobileGps[0];
   animateCarTo(first.latitude, first.longitude);
   map.setView([first.latitude, first.longitude], 8);
   highlightDot(first.id);
+
+  // Sæt scrubber op efter strip er bygget
+  setupMobileScrubber(mobileGps);
 }
 
 async function openMobileOverlay(id) {
@@ -829,6 +891,99 @@ async function openMobileOverlay(id) {
 function closeMobileOverlay() {
   document.getElementById('mobile-overlay').classList.remove('open');
   document.getElementById('mobile-overlay-body').innerHTML = '';
+}
+
+// ─── Mobil scrubber ───────────────────────────────────────────────────
+function setupMobileScrubber(mobileGps) {
+  const scrubber = document.getElementById('mobile-scrubber');
+  const track    = document.getElementById('mobile-scrubber-track');
+  const thumb    = document.getElementById('mobile-scrubber-thumb');
+  const n = mobileGps.length;
+  if (n < 1) return;
+
+  // Tilføj stop-prikker for hvert GPS-punkt
+  mobileGps.forEach((_, i) => {
+    const stop = document.createElement('div');
+    stop.className = 'scrubber-stop';
+    track.appendChild(stop);
+  });
+
+  function positionStops() {
+    const h = track.clientHeight;
+    track.querySelectorAll('.scrubber-stop').forEach((s, i) => {
+      s.style.top = Math.round(n > 1 ? (i / (n - 1)) * h : 0) + 'px';
+    });
+  }
+
+  function setThumb(fraction) {
+    thumb.style.top = Math.round(Math.max(0, Math.min(1, fraction)) * track.clientHeight) + 'px';
+  }
+
+  function applyClientY(clientY) {
+    const rect = track.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    setThumb(fraction);
+
+    const raw    = fraction * (n - 1);
+    const iFloor = Math.min(Math.floor(raw), n - 2);
+    const t      = raw - Math.floor(raw);
+
+    // Interpolér bil direkte mellem to GPS-punkter
+    let lat, lng;
+    if (n === 1 || iFloor >= n - 1) {
+      lat = mobileGps[n - 1].latitude;
+      lng = mobileGps[n - 1].longitude;
+    } else {
+      lat = mobileGps[iFloor].latitude  + (mobileGps[iFloor + 1].latitude  - mobileGps[iFloor].latitude)  * t;
+      lng = mobileGps[iFloor].longitude + (mobileGps[iFloor + 1].longitude - mobileGps[iFloor].longitude) * t;
+    }
+    carMarker.setLatLng([lat, lng]);
+    carPos = { lat, lng };
+
+    // Aktiver artikel ved midtpunkt
+    const activeI = Math.min(t >= 0.5 ? Math.ceil(raw) : Math.floor(raw), n - 1);
+    if (activeI !== lastMobileIdx) {
+      lastMobileIdx = activeI;
+      const a = mobileGps[activeI];
+      map.panTo([a.latitude, a.longitude], { animate: true, duration: 0.3 });
+      highlightDot(a.id);
+      scrollStripToIndex(activeI);
+    }
+  }
+
+  // Touch events
+  let dragging = false;
+  scrubber.addEventListener('touchstart', e => {
+    dragging = true;
+    applyClientY(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    applyClientY(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchend',   () => { dragging = false; });
+  document.addEventListener('touchcancel', () => { dragging = false; });
+
+  // Mouse (desktop-test)
+  scrubber.addEventListener('mousedown', e => { dragging = true; applyClientY(e.clientY); });
+  document.addEventListener('mousemove', e => { if (dragging) applyClientY(e.clientY); });
+  document.addEventListener('mouseup',   () => { dragging = false; });
+
+  requestAnimationFrame(() => { positionStops(); setThumb(0); });
+
+  // Eksponér sync-funktion til strip-scroll
+  window._syncScrubber = idx => setThumb(n > 1 ? idx / (n - 1) : 0);
+}
+
+function scrollStripToIndex(idx) {
+  const strip = document.getElementById('mobile-strip');
+  const pills = strip.querySelectorAll('.mobile-pill');
+  pills.forEach((p, i) => p.classList.toggle('active', i === idx));
+  if (pills[idx]) {
+    pills[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 }
 
 // ─── Bil-animation ───────────────────────────────────────────────────
