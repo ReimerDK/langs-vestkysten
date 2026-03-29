@@ -536,53 +536,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/dompurify@3.1.6/dist/purify.min.js"></script>
 <script>
-// ─── Rute-waypoints langs vestkysten ────────────────────────────────
-const ROUTE = [
-  [54.82, 9.36],   // Padborg / DK-DE grænse
-  [54.67, 9.55],   // Flensburg
-  [53.87, 9.98],   // Neumünster
-  [53.55, 9.99],   // Hamburg
-  [53.45, 8.81],   // Bremen omegn
-  [53.08, 8.80],   // Bremen
-  [53.22, 7.47],   // Oldenburg omegn
-  [53.54, 7.21],   // Emden
-  [52.38, 4.64],   // Amsterdam-omegn
-  [52.37, 4.90],   // Amsterdam
-  [52.07, 4.31],   // Den Haag
-  [51.92, 4.47],   // Rotterdam
-  [51.46, 3.56],   // Breskens, Zeeland
-  [51.23, 2.92],   // De Panne, Belgien
-  [51.03, 2.37],   // Dunkerque
-  [50.72, 1.60],   // Boulogne-sur-Mer
-  [50.07, 1.61],   // Dieppe
-  [49.44, -0.37],  // Caen
-  [48.65, -1.98],  // St-Malo
-  [47.88, -2.54],  // Vannes-omegn
-  [47.22, -1.55],  // Nantes
-  [46.67, -1.43],  // La Roche-sur-Yon
-  [46.16, -1.15],  // La Rochelle
-  [45.68, -1.03],  // Rochefort
-  [44.84, -0.57],  // Bordeaux
-  [44.53, -1.25],  // Arcachon
-  [43.49, -1.48],  // Bayonne
-  [43.31, -1.97],  // San Sebastián
-  [43.26, -2.92],  // Bilbao
-  [43.46, -3.81],  // Santander
-  [43.36, -5.85],  // Gijón
-  [43.37, -8.40],  // A Coruña
-  [42.02, -8.65],  // Vigo
-  [41.15, -8.61],  // Porto
-  [40.64, -8.65],  // Aveiro
-  [39.74, -8.81],  // Leiria
-  [38.72, -9.14],  // Lissabon
-  [37.95, -8.86],  // Setúbal
-  [37.02, -7.93],  // Faro
-  [36.72, -6.29],  // Cádiz
-  [36.14, -5.35],  // Gibraltar
-];
-
-const START = ROUTE[0];
-const END   = ROUTE[ROUTE.length - 1];
+const START = [54.82, 9.36]; // Padborg / DK-DE grænse (startposition inden artikler loades)
 
 // ─── Kort ───────────────────────────────────────────────────────────
 const map = L.map('map', {
@@ -692,46 +646,8 @@ function activateArticle(article) {
 }
 
 // ─── Scroll-drevet bil-bevægelse ─────────────────────────────────────
-let gpsArticles  = [];
-let routeIndices = [];
+let gpsArticles   = [];
 let lastScrollIdx = -1;
-
-function closestRouteIdx(lat, lng) {
-  let minDist = Infinity, idx = 0;
-  ROUTE.forEach(([rlat, rlng], i) => {
-    const d = Math.hypot(lat - rlat, lng - rlng);
-    if (d < minDist) { minDist = d; idx = i; }
-  });
-  return idx;
-}
-
-function interpolateAlongRoute(fromLat, fromLng, fromIdx, toLat, toLng, toIdx, t) {
-  // Byg stien: artiklens præcise position → rute-waypoints → næste artikels præcise position
-  const pts = [[fromLat, fromLng]];
-  const step = fromIdx <= toIdx ? 1 : -1;
-  for (let i = fromIdx + step; i !== toIdx + step; i += step) pts.push(ROUTE[i]);
-  pts.push([toLat, toLng]);
-
-  // Kumulativ afstand langs stien
-  const dists = [0];
-  for (let i = 1; i < pts.length; i++) {
-    dists.push(dists[i-1] + Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]));
-  }
-  const total = dists[dists.length - 1];
-  const target = t * total;
-
-  for (let i = 1; i < pts.length; i++) {
-    if (dists[i] >= target || i === pts.length - 1) {
-      const segLen = dists[i] - dists[i-1];
-      const segT = segLen > 0 ? (target - dists[i-1]) / segLen : 1;
-      return {
-        lat: pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * segT,
-        lng: pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * segT,
-      };
-    }
-  }
-  return { lat: toLat, lng: toLng };
-}
 
 function setupScrollDriving(articles) {
   // Sortér efter dato (ældst først = øverst i sidebar) — én gang, røres aldrig igen
@@ -740,8 +656,6 @@ function setupScrollDriving(articles) {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   if (!gpsArticles.length) return;
-
-  routeIndices = gpsArticles.map(a => closestRouteIdx(a.latitude, a.longitude));
 
   const first = gpsArticles[0];
   carMarker.setLatLng([first.latitude, first.longitude]);
@@ -790,13 +704,11 @@ function onSidebarScroll() {
     return;
   }
 
-  const t = Math.max(0, Math.min(1, (center - fromTop) / (toTop - fromTop)));
-  const pos = interpolateAlongRoute(
-    gpsArticles[activeI].latitude,   gpsArticles[activeI].longitude,   routeIndices[activeI],
-    gpsArticles[activeI+1].latitude, gpsArticles[activeI+1].longitude, routeIndices[activeI+1],
-    t
-  );
-  moveCar(pos.lat, pos.lng, t >= 0.5 ? activeI + 1 : activeI);
+  // Interpolér direkte mellem de to GPS-punkter (ingen rute-waypoints)
+  const t   = Math.max(0, Math.min(1, (center - fromTop) / (toTop - fromTop)));
+  const lat = gpsArticles[activeI].latitude  + (gpsArticles[activeI+1].latitude  - gpsArticles[activeI].latitude)  * t;
+  const lng = gpsArticles[activeI].longitude + (gpsArticles[activeI+1].longitude - gpsArticles[activeI].longitude) * t;
+  moveCar(lat, lng, t >= 0.5 ? activeI + 1 : activeI);
 }
 
 function moveCar(lat, lng, activeIdx) {
