@@ -735,16 +735,21 @@ function interpolateAlongRoute(fromLat, fromLng, fromIdx, toLat, toLng, toIdx, t
 }
 
 function setupScrollDriving(articles) {
-  gpsArticles = articles.filter(a => a.latitude && a.longitude);
-  if (!gpsArticles.length) return;
+  const rawGps = articles.filter(a => a.latitude && a.longitude);
+  if (!rawGps.length) return;
 
   const sidebar = document.getElementById('sidebar');
   const sidebarRect = sidebar.getBoundingClientRect();
-  cardTops = gpsArticles.map(a => {
+
+  // Sortér efter DOM-position (scroll-top) — ikke efter dato — så cardTops altid er stigende
+  const withTops = rawGps.map(a => {
     const card = document.querySelector(`.article-card[data-id="${a.id}"]`);
-    if (!card) return 0;
-    return card.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop;
-  });
+    const top = card ? card.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop : Infinity;
+    return { a, top };
+  }).filter(x => isFinite(x.top)).sort((x, y) => x.top - y.top);
+
+  gpsArticles = withTops.map(x => x.a);
+  cardTops    = withTops.map(x => x.top);
 
   // Find nærmeste rute-waypoint for hvert GPS-artikel
   routeIndices = gpsArticles.map(a => closestRouteIdx(a.latitude, a.longitude));
