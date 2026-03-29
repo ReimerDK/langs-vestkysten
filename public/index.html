@@ -580,13 +580,18 @@
     /* ─── Mobil artikel-overlay ─────────────────────────────────────── */
     #mobile-overlay {
       position: fixed;
-      top: 0; left: 0; bottom: 0;
-      right: 52px; /* frihold scrubber-sporet i højre side */
+      top: 16px;
+      left: 12px;
+      bottom: 16px;
+      right: 64px; /* luft til scrubber */
       z-index: 200;
       background: var(--bg);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      transform: translateY(100%);
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(28,20,16,0.22);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(calc(100% + 32px));
       transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
       pointer-events: none;
     }
@@ -595,33 +600,34 @@
       pointer-events: auto;
     }
     #mobile-overlay-header {
-      position: sticky; top: 0;
-      background: rgba(253,251,247,0.95);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 14px 20px;
+      flex-shrink: 0;
+      background: rgba(253,251,247,0.97);
+      padding: 14px 16px;
       display: flex; align-items: center; justify-content: space-between;
       border-bottom: 1px solid var(--border);
-      z-index: 1;
     }
     #mobile-overlay-header-title {
-      font-family: var(--sans); font-size: 14px; font-weight: 600;
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
       color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      margin-right: 12px;
+      margin-right: 10px;
     }
     #mobile-overlay-close {
       flex-shrink: 0;
-      width: 36px; height: 36px;
+      width: 32px; height: 32px;
       border-radius: 50%; border: none;
       background: rgba(28,20,16,0.07);
-      font-size: 16px; cursor: pointer;
+      font-size: 15px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
+    #mobile-overlay-scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     #mobile-overlay-body {
-      padding: 28px 20px;
-      padding-bottom: max(env(safe-area-inset-bottom, 0px), 80px);
+      padding: 22px 18px 60px;
     }
 
     /* ─── Mobile layout — SKAL stå SIDST så den vinder over basis-stilene ── */
@@ -698,7 +704,9 @@
     <span id="mobile-overlay-header-title"></span>
     <button id="mobile-overlay-close" onclick="closeMobileOverlay()">✕</button>
   </div>
-  <div id="mobile-overlay-body"></div>
+  <div id="mobile-overlay-scroll">
+    <div id="mobile-overlay-body"></div>
+  </div>
 </div>
 
 <!-- Lightbox -->
@@ -857,15 +865,31 @@ function buildMobileStrip(articles) {
 }
 
 async function openMobileOverlay(id) {
-  const overlay  = document.getElementById('mobile-overlay');
-  const titleEl  = document.getElementById('mobile-overlay-header-title');
-  const body     = document.getElementById('mobile-overlay-body');
-  const cached   = articlesById[id];
+  const overlay    = document.getElementById('mobile-overlay');
+  const scrollEl   = document.getElementById('mobile-overlay-scroll');
+  const titleEl    = document.getElementById('mobile-overlay-header-title');
+  const body       = document.getElementById('mobile-overlay-body');
+  const cached     = articlesById[id];
 
   titleEl.textContent = cached?.title || '';
   body.innerHTML = '<p style="padding:20px;color:var(--muted)">Henter...</p>';
   overlay.classList.add('open');
-  overlay.scrollTop = 0;
+  scrollEl.scrollTop = 0;
+
+  // Luk hvis brugeren scroller videre forbi bunden
+  let startY = 0;
+  const onTouchStart = e => { startY = e.touches[0].clientY; };
+  const onTouchMove  = e => {
+    const atBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 8;
+    const pulledDown = e.touches[0].clientY - startY > 60;
+    if (atBottom && pulledDown) { closeMobileOverlay(); }
+  };
+  overlay.addEventListener('touchstart', onTouchStart, { passive: true });
+  overlay.addEventListener('touchmove',  onTouchMove,  { passive: true });
+  overlay._cleanupScroll = () => {
+    overlay.removeEventListener('touchstart', onTouchStart);
+    overlay.removeEventListener('touchmove',  onTouchMove);
+  };
 
   try {
     const res = await fetch(`/api/articles/${id}`);
@@ -891,7 +915,9 @@ async function openMobileOverlay(id) {
 }
 
 function closeMobileOverlay() {
-  document.getElementById('mobile-overlay').classList.remove('open');
+  const overlay = document.getElementById('mobile-overlay');
+  overlay.classList.remove('open');
+  if (overlay._cleanupScroll) { overlay._cleanupScroll(); delete overlay._cleanupScroll; }
   document.getElementById('mobile-overlay-body').innerHTML = '';
 }
 
