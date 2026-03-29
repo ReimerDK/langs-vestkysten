@@ -468,18 +468,6 @@
       margin-bottom: 2px;
     }
 
-    /* ─── Mobile layout ────────────────────────────────────────────── */
-    @media (max-width: 768px) {
-      html, body { overflow: hidden; }
-      .layout { display: block; height: 100%; }
-      .sidebar { display: none; }
-      .map-panel { position: fixed; inset: 0; width: 100%; height: 100%; }
-      #map { width: 100%; height: 100%; }
-      .map-progress { display: none !important; }
-      #mobile-strip { display: flex; }
-      #mobile-scrubber { display: flex; }
-    }
-
     /* ─── Mobil scrubber (vertikal scroll-håndtag, højre side) ──────── */
     #mobile-scrubber {
       display: none;
@@ -632,6 +620,18 @@
     #mobile-overlay-body {
       padding: 28px 20px;
       padding-bottom: max(env(safe-area-inset-bottom, 0px), 80px);
+    }
+
+    /* ─── Mobile layout — SKAL stå SIDST så den vinder over basis-stilene ── */
+    @media (max-width: 768px) {
+      html, body { overflow: hidden; }
+      .layout { display: block; height: 100%; }
+      .sidebar { display: none; }
+      .map-panel { position: fixed; inset: 0; width: 100%; height: 100%; }
+      #map { width: 100%; height: 100%; }
+      .map-progress { display: none !important; }
+      #mobile-strip    { display: flex; }
+      #mobile-scrubber { display: flex; }
     }
   </style>
 </head>
