@@ -760,10 +760,21 @@ function setupScrollDriving(articles) {
   document.getElementById('sidebar').addEventListener('scroll', onSidebarScroll);
 }
 
+function refreshCardTops() {
+  const sidebar = document.getElementById('sidebar');
+  const sidebarRect = sidebar.getBoundingClientRect();
+  cardTops = gpsArticles.map(a => {
+    const card = document.querySelector(`.article-card[data-id="${a.id}"]`);
+    if (!card) return 0;
+    return card.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop;
+  });
+}
+
 function onSidebarScroll() {
   if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
 
   const sidebar = document.getElementById('sidebar');
+  refreshCardTops();
   const center = sidebar.scrollTop + sidebar.clientHeight / 2;
   const n = gpsArticles.length;
   if (!n) return;
