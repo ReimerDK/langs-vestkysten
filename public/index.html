@@ -780,14 +780,21 @@ async function openCardFromMap(id) {
     activateArticle(article);
   }
 
-  const cardTop = card.offsetTop - sidebar.offsetTop;
-  sidebar.scrollTo({ top: cardTop - 24, behavior: 'smooth' });
-
   const expand = document.getElementById(`expand-${id}`);
   if (!expand.classList.contains('open')) {
     const btn = card.querySelector('.card-toggle');
     await toggleCard({ stopPropagation: () => {} }, id, btn);
   }
+
+  // Vent til ekspansion-animation er færdig (450ms), så beregn centreret scroll
+  await new Promise(r => setTimeout(r, 450));
+
+  const sidebarHeight = sidebar.clientHeight;
+  const cardTop = card.offsetTop - sidebar.offsetTop;
+  const cardHeight = card.clientHeight;
+  const scrollTarget = cardTop - (sidebarHeight - cardHeight) / 2;
+
+  sidebar.scrollTo({ top: scrollTarget, behavior: 'smooth' });
 }
 
 // ─── Mobil ───────────────────────────────────────────────────────────
